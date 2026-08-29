@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# runtime: base de dados JSON e ficheiros de vídeo gerados pelo FFmpeg
+database/db.json
+storage/

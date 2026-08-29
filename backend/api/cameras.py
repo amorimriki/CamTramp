@@ -13,10 +13,31 @@ necessário para o ecrã de configuração de uma câmara individual.)
 
 from fastapi import APIRouter, HTTPException, status
 
+from pydantic import BaseModel
+
 from models.camera import Camera, CameraCreate, CameraUpdate
-from services import camera_manager
+from services import camera_manager, stream_manager
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
+
+
+class TestConnectionRequest(BaseModel):
+    rtsp_url: str
+
+
+class TestConnectionResponse(BaseModel):
+    ok: bool
+    message: str
+
+
+@router.post("/test", response_model=TestConnectionResponse)
+def test_connection(payload: TestConnectionRequest) -> TestConnectionResponse:
+    """Testa a ligação RTSP sem criar/arrancar uma câmara (botão "TESTAR" do README secção 8)."""
+    try:
+        ok, message = stream_manager.test_connection(payload.rtsp_url)
+    except stream_manager.FFmpegNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return TestConnectionResponse(ok=ok, message=message)
 
 
 @router.get("", response_model=list[Camera])
