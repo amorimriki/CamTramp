@@ -1,6 +1,6 @@
-// Mostra o IP local da máquina e um código QR com o URL da app, para
-// facilitar abrir o dashboard noutro dispositivo (telemóvel, tablet) na
-// mesma rede local — sem precisar de escrever o IP à mão.
+// Mostra o IP local da máquina e um código QR com o URL da app, no
+// rodapé, para facilitar abrir o dashboard noutro dispositivo (telemóvel,
+// tablet) na mesma rede local — sem precisar de escrever o IP à mão.
 
 import { useEffect, useState } from 'react'
 import { api } from '../api'
@@ -31,10 +31,13 @@ export function NetworkAccess() {
 
   return (
     <div className="network-access">
-      <QrCode value={url} size={64} />
+      <QrCode value={url} size={140} />
       <div className="network-access__info">
         <div className="network-access__label">Aceder noutro dispositivo</div>
         <div className="network-access__url">{url}</div>
+        <p className="network-access__hint">
+          Aponta a câmara do telemóvel ao código para abrir a app nesta rede.
+        </p>
       </div>
     </div>
   )

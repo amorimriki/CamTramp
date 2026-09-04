@@ -68,9 +68,11 @@ export function Settings() {
       <table className="settings__table">
         <thead>
           <tr>
-            <th>Nome</th>
-            <th>URL RTSP</th>
-            <th />
+            <th scope="col">Nome</th>
+            <th scope="col">URL RTSP</th>
+            <th scope="col">
+              <span className="visually-hidden">Ações</span>
+            </th>
           </tr>
         </thead>
         <tbody>

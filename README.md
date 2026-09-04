@@ -371,6 +371,28 @@ GET    /docs                           # Swagger UI (documentação interativa)
   serviço está a correr (`systemctl --user status camtramp.service`) e
   que existe sessão gráfica ativa (a entrada de autostart XDG só corre em
   ambiente gráfico); ver secção 10.
+- **Não consigo aceder a partir de outro dispositivo na rede, mas o
+  servidor está a correr** — a causa mais comum no Raspberry Pi é o
+  `ufw` (firewall) ativo sem regras para as portas da aplicação: por
+  omissão bloqueia tudo o que não esteja explicitamente permitido, mesmo
+  que os processos estejam corretamente a ouvir em `0.0.0.0`. Confirmar
+  com `sudo ufw status` e, se estiver `active`, abrir as portas do
+  backend e do frontend:
+
+  ```bash
+  sudo ufw allow 8000/tcp
+  sudo ufw allow 5173/tcp
+  sudo ufw reload
+  ```
+
+  Se mudares `BACKEND_PORT`/`FRONTEND_PORT` (secção 6), repete isto para
+  as novas portas — o `ufw` não sabe nada da aplicação, só dos números
+  de porta. Se mesmo assim não funcionar, confirmar também que os
+  processos estão a ouvir em todas as interfaces (`ss -tlnp | grep -E
+  ':8000|:5173'` deve mostrar `0.0.0.0:...`, não `127.0.0.1:...`),
+  isolamento de clientes no router/Wi-Fi, e — se a máquina tiver mais do
+  que uma interface de rede ativa — que o IP mostrado no cabeçalho
+  (secção 9) é mesmo o da rede local certa.
 
 ## 14. Hardware recomendado (implantação num Raspberry Pi)
 

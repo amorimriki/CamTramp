@@ -160,8 +160,15 @@ export function CameraCard({ camera }: Props) {
           <video ref={videoRef} autoPlay muted playsInline controls />
         ) : running ? (
           <div className="camera-card__loading">
-            <div className="camera-card__loading-label">A carregar câmera…</div>
-            <div className="camera-card__progress">
+            <div className="camera-card__loading-label">A carregar câmara…</div>
+            <div
+              className="camera-card__progress"
+              role="progressbar"
+              aria-valuenow={Math.round(loadingProgressPct)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`A carregar câmara ${camera.name}`}
+            >
               <div className="camera-card__progress-bar" style={{ width: `${loadingProgressPct}%` }} />
             </div>
             <div className="camera-card__loading-hint">

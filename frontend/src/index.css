@@ -26,3 +26,28 @@ button:disabled {
 input {
   font-family: inherit;
 }
+
+/* Indicador de foco visível e consistente para navegação por teclado —
+   o estilo por omissão do browser nem sempre se destaca o suficiente
+   sobre os fundos escuros dos botões/inputs desta app. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* Texto só para leitores de ecrã — mantém a estrutura semântica
+   (títulos, cabeçalhos de tabela) sem repetir visualmente o que já é
+   óbvio no ecrã. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
