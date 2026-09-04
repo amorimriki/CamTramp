@@ -176,7 +176,7 @@ export function CameraCard({ camera }: Props) {
       {buffer?.available && (
         <div className="camera-card__buffer">
           Buffer: últimos {Math.round(buffer.duration_seconds)}s disponíveis para recuar
-          (configurado: {camera.buffer_seconds}s)
+          (fixo: {Math.round(camera.buffer_seconds / 60)} min)
         </div>
       )}
 

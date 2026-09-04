@@ -1,0 +1,23 @@
+# Serviço systemd --user que arranca o CamTramp (backend + frontend) no
+# login. Gerado automaticamente por scripts/install-autostart.sh a partir
+# deste ficheiro — não editar o resultado instalado diretamente, edita
+# antes este template (o marcador de posição do caminho do projeto é
+# substituído pelo caminho real na instalação).
+#
+# Se BACKEND_PORT/FRONTEND_PORT tiverem sido alterados (ver README), adiciona
+# aqui "Environment=BACKEND_PORT=... FRONTEND_PORT=..." antes de instalar.
+
+[Unit]
+Description=CamTramp (backend FastAPI + frontend Vite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PROJECT_DIR__/start.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

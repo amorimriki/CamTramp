@@ -34,6 +34,11 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   yellow "Instala com: brew install ffmpeg"
 fi
 
+if ! command -v nmap >/dev/null 2>&1; then
+  yellow "Aviso: nmap não encontrado no PATH — a descoberta automática de câmaras (\"Procurar câmaras na rede\") não vai funcionar."
+  yellow "Instala com: brew install nmap (macOS) ou sudo apt install nmap (Linux/Raspberry Pi)"
+fi
+
 # --- dependências do backend -----------------------------------------------
 if ! python3 -c "import fastapi" >/dev/null 2>&1; then
   yellow "Dependências do backend em falta — a instalar (pip install -r requirements.txt)..."

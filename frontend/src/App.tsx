@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Dashboard } from './pages/Dashboard'
+import { NetworkAccess } from './components/NetworkAccess'
 import { Settings } from './pages/Settings'
 import './App.css'
 
@@ -12,6 +13,7 @@ function App() {
     <div className="app">
       <header className="app__header">
         <h1>Video Control Center</h1>
+        <NetworkAccess />
         <nav>
           <button
             type="button"

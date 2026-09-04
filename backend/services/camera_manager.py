@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from config.settings import BUFFER_SECONDS
 from database import database as db
 from models.camera import Camera, CameraCreate, CameraUpdate
 from services import stream_manager
@@ -26,23 +27,30 @@ STATUS_STOPPED = "stopped"
 STATUS_RUNNING = "running"
 
 
+def _to_camera(data: dict) -> Camera:
+    """Constrói um Camera a partir do registo guardado, ignorando qualquer
+    `buffer_seconds` que lá esteja (dados antigos, por ex.) — o buffer é
+    sempre o valor fixo configurado em BUFFER_SECONDS."""
+    return Camera(**{**data, "buffer_seconds": BUFFER_SECONDS})
+
+
 def list_cameras() -> list[Camera]:
-    return [Camera(**c) for c in db.get_cameras()]
+    return [_to_camera(c) for c in db.get_cameras()]
 
 
 def get_camera(camera_id: int) -> Optional[Camera]:
     data = db.get_camera(camera_id)
-    return Camera(**data) if data else None
+    return _to_camera(data) if data else None
 
 
 def add_camera(payload: CameraCreate) -> Camera:
     created = db.create_camera(payload.model_dump())
-    return Camera(**created)
+    return _to_camera(created)
 
 
 def update_camera(camera_id: int, payload: CameraUpdate) -> Optional[Camera]:
     updated = db.update_camera(camera_id, payload.model_dump(exclude_unset=True))
-    return Camera(**updated) if updated else None
+    return _to_camera(updated) if updated else None
 
 
 def remove_camera(camera_id: int) -> bool:
@@ -60,7 +68,9 @@ def start_stream(camera_id: int) -> None:
     camera = db.get_camera(camera_id)
     if camera is None:
         raise ValueError(f"Câmara {camera_id} não existe")
-    stream_manager.start(camera_id, camera["rtsp_url"], camera["buffer_seconds"])
+    # o buffer é sempre BUFFER_SECONDS, independentemente do que estiver
+    # guardado (ver _to_camera acima)
+    stream_manager.start(camera_id, camera["rtsp_url"], BUFFER_SECONDS)
 
 
 def stop_stream(camera_id: int) -> None:

@@ -7,6 +7,8 @@ import type {
   BufferSummary,
   Camera,
   CameraInput,
+  NetworkInfo,
+  ScanResult,
   StreamStatus,
   TestConnectionResult,
 } from './types'
@@ -54,4 +56,13 @@ export const api = {
     request<StreamStatus>(`/api/cameras/${id}/stream/stop`, { method: 'POST' }),
 
   bufferSummary: (id: number) => request<BufferSummary>(`/api/cameras/${id}/buffer`),
+
+  // IP local (LAN) desta máquina, para mostrar como código QR (ver
+  // components/NetworkAccess.tsx e backend/api/system.py).
+  networkInfo: () => request<NetworkInfo>('/api/system/network'),
+
+  // Descoberta automática de câmaras na rede local via nmap (ver
+  // components/CameraForm.tsx e backend/api/discovery.py). Pode demorar
+  // alguns segundos.
+  discoverDevices: () => request<ScanResult>('/api/discovery/scan'),
 }

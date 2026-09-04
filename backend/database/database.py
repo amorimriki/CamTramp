@@ -19,12 +19,16 @@ Estrutura do ficheiro (db.json):
       "id": 1,
       "name": "Trampolim 1",
       "rtsp_url": "rtsp://192.168.1.230:554/0",
-      "buffer_seconds": 30,
       "enabled": true,
       "created_at": "2026-08-29T13:30:12.123456"
     }
   ]
 }
+
+O campo "buffer_seconds" já não é escrito para câmaras novas — o buffer
+é fixo (ver BUFFER_SECONDS em config/settings.py) e é a API que o
+devolve, não o registo guardado. Registos antigos que ainda o tenham
+são ignorados (ver camera_manager._to_camera).
 
 Todas as operações de escrita são feitas de forma atómica (escreve-se
 para um ficheiro temporário e faz-se rename) e protegidas por um lock,

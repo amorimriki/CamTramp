@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=CamTramp
+Comment=Abre o dashboard do CamTramp no browser depois do login
+Exec=__PROJECT_DIR__/scripts/open-browser.sh
+X-GNOME-Autostart-enabled=true
+Hidden=false
+Terminal=false

@@ -1,5 +1,6 @@
 // Tipos espelhando os modelos Pydantic do backend (backend/models/camera.py)
 // e as respostas dos endpoints em backend/api/cameras.py e backend/api/buffer.py.
+// buffer_seconds é sempre o valor fixo devolvido pela API (não é editável).
 
 export interface Camera {
   id: number
@@ -13,7 +14,6 @@ export interface Camera {
 export interface CameraInput {
   name: string
   rtsp_url: string
-  buffer_seconds: number
   enabled?: boolean
 }
 
@@ -35,4 +35,18 @@ export interface BufferSummary {
 export interface TestConnectionResult {
   ok: boolean
   message: string
+}
+
+export interface NetworkInfo {
+  ip: string
+}
+
+export interface DiscoveredDevice {
+  ip: string
+  port: number
+  suggested_url: string
+}
+
+export interface ScanResult {
+  devices: DiscoveredDevice[]
 }

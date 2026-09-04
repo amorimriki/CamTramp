@@ -33,6 +33,40 @@
   color: #fff;
 }
 
+.network-access {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #262b36;
+  border-radius: 8px;
+  background: #10141b;
+}
+
+.network-access .qr-code {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.network-access__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.network-access__label {
+  color: #9aa1ad;
+  font-size: 0.75rem;
+}
+
+.network-access__url {
+  color: #cfd3dc;
+  font-size: 0.85rem;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
 .app__main {
   padding: 1.5rem;
   max-width: 1200px;
@@ -193,6 +227,12 @@
   color: #fff;
 }
 
+.settings__hint {
+  color: #9aa1ad;
+  font-size: 0.85rem;
+  margin: -0.5rem 0 1rem;
+}
+
 .settings__error {
   color: #f87171;
   margin-bottom: 1rem;
@@ -309,6 +349,52 @@
 
 .camera-form__actions button[type='submit'] {
   background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.camera-form__discovery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.camera-form__discovery > button {
+  align-self: flex-start;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #2f3542;
+  background: #1f2430;
+  color: #e6e8ec;
+  font-size: 0.85rem;
+}
+
+.camera-form__discovery-empty {
+  color: #9aa1ad;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.camera-form__discovery-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.camera-form__discovery-list button {
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #2f3542;
+  background: #10131a;
+  color: #cfd3dc;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.camera-form__discovery-list button:hover {
   border-color: #3b82f6;
   color: #fff;
 }
