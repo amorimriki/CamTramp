@@ -22,10 +22,10 @@ BUFFER_DIR = STORAGE_DIR / "buffer"          # segmentos temporários do buffer
 RECORDINGS_DIR = STORAGE_DIR / "recordings"  # gravações permanentes ("saltos" guardados)
 LOGS_DIR = STORAGE_DIR / "logs"              # logs dos processos FFmpeg, por câmara
 
-# Valores por omissão / limites para o buffer de uma câmara
-DEFAULT_BUFFER_SECONDS = 120  # 2 minutos, por omissão para novas câmaras
-MIN_BUFFER_SECONDS = 10
-MAX_BUFFER_SECONDS = 120
+# Duração do buffer de vídeo mantido por câmara. Deixou de ser configurável
+# por câmara (era 10-120s, ajustável no formulário) — fica fixo em 5 minutos
+# para todas as câmaras, para simplificar a operação do sistema.
+BUFFER_SECONDS = 300  # 5 minutos
 
 # Duração de cada segmento HLS/FFmpeg (ver README secção 4)
 SEGMENT_SECONDS = 2

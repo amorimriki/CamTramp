@@ -32,6 +32,7 @@ export function Dashboard() {
 
   return (
     <div className="dashboard">
+      <h2 className="visually-hidden">Câmaras</h2>
       {cameras.map((camera) => (
         <CameraCard key={camera.id} camera={camera} />
       ))}

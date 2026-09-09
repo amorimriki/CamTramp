@@ -61,15 +61,18 @@ export function Settings() {
         </button>
       </div>
 
+      <p className="settings__hint">Buffer fixo de 5 minutos para todas as câmaras.</p>
+
       {loadError && <div className="settings__error">{loadError}</div>}
 
       <table className="settings__table">
         <thead>
           <tr>
-            <th>Nome</th>
-            <th>URL RTSP</th>
-            <th>Buffer</th>
-            <th />
+            <th scope="col">Nome</th>
+            <th scope="col">URL RTSP</th>
+            <th scope="col">
+              <span className="visually-hidden">Ações</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -77,7 +80,6 @@ export function Settings() {
             <tr key={camera.id}>
               <td>{camera.name}</td>
               <td className="settings__url">{camera.rtsp_url}</td>
-              <td>{camera.buffer_seconds}s</td>
               <td className="settings__row-actions">
                 <button type="button" onClick={() => handleEdit(camera)}>
                   Editar
@@ -90,7 +92,7 @@ export function Settings() {
           ))}
           {cameras.length === 0 && (
             <tr>
-              <td colSpan={4} className="settings__empty">
+              <td colSpan={3} className="settings__empty">
                 Ainda não há câmaras configuradas.
               </td>
             </tr>
