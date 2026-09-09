@@ -12,6 +12,10 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8000',
       '/streams': 'http://localhost:8000',
+      // ficheiros .mp4 das gravações automáticas (ver backend/api/recordings.py
+      // e main.py: app.mount("/recordings", ...)) — sem isto, o link
+      // "Transferir" na página de Gravações dava 404 em desenvolvimento.
+      '/recordings': 'http://localhost:8000',
       // /ws/status: estado em tempo real das câmaras (ver backend/api/ws.py).
       // Precisa de "ws: true" para o Vite também fazer o upgrade da ligação
       // HTTP para WebSocket, não só pedidos HTTP normais.

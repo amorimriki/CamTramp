@@ -503,9 +503,13 @@ esteja a escrever nesse preciso momento — só o quinto ficheiro mais antigo
 (já garantidamente fechado) é removido.
 
 **No frontend**, a nova página "Gravações" (`frontend/src/pages/Recordings.tsx`,
-via `GET /api/recordings`) lista, por câmara, o início, o tamanho e uma
-hiperligação de transferência para cada ficheiro gravado
-(`GET /recordings/{camera_id}/{ficheiro}.mp4`, ficheiros estáticos).
+via `GET /api/recordings`) lista, por câmara, o início, o tamanho e um
+botão "Transferir" para descarregar cada ficheiro gravado
+(`GET /recordings/{camera_id}/{ficheiro}.mp4`, ficheiros estáticos), com
+um nome de ficheiro mais descritivo (nome da câmara + timestamp) do que o
+nome em disco. Em desenvolvimento, `frontend/vite.config.ts` faz proxy de
+`/recordings` para o backend (tal como já fazia para `/api` e `/streams`)
+— sem isto o download dava 404, por o pedido ficar só no servidor do Vite.
 
 ## 17. Roadmap
 

@@ -23,6 +23,13 @@ function formatTimestamp(iso: string): string {
   })
 }
 
+function downloadName(recording: RecordingInfo): string {
+  // nome mais descritivo do que o timestamp em bruto do ficheiro (ex.:
+  // "Trampolim_20260909_143000.mp4" em vez de só "20260909_143000.mp4")
+  const safeCameraName = recording.camera_name.replace(/[^\p{L}\p{N}]+/gu, '_')
+  return `${safeCameraName}_${recording.filename}`
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   const units = ['KB', 'MB', 'GB']
@@ -87,7 +94,7 @@ export function Recordings() {
               <td>{formatTimestamp(recording.started_at)}</td>
               <td className="recordings__size">{formatSize(recording.size_bytes)}</td>
               <td className="recordings__row-actions">
-                <a href={recording.url} download>
+                <a href={recording.url} download={downloadName(recording)}>
                   Transferir
                 </a>
               </td>
