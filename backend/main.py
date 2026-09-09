@@ -27,15 +27,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-<<<<<<< Updated upstream
-from api import buffer, cameras
-from config.settings import BUFFER_DIR
-from services import camera_manager, stream_manager
-=======
 from api import buffer, cameras, discovery, recordings, system, ws
 from config.settings import BUFFER_DIR, RECORDINGS_DIR
 from services import camera_manager, recording_manager, status_broadcaster, stream_manager
->>>>>>> Stashed changes
 
 
 @asynccontextmanager
@@ -75,13 +69,10 @@ app.add_middleware(
 
 app.include_router(cameras.router)
 app.include_router(buffer.router)
-<<<<<<< Updated upstream
-=======
 app.include_router(system.router)
 app.include_router(discovery.router)
 app.include_router(recordings.router)
 app.include_router(ws.router)
->>>>>>> Stashed changes
 
 # Serve os ficheiros .m3u8/.ts do buffer diretamente por HTTP (ver README secção 10)
 BUFFER_DIR.mkdir(parents=True, exist_ok=True)

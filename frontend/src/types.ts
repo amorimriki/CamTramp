@@ -36,8 +36,6 @@ export interface TestConnectionResult {
   ok: boolean
   message: string
 }
-<<<<<<< Updated upstream
-=======
 
 export interface NetworkInfo {
   ip: string
@@ -63,4 +61,3 @@ export interface RecordingInfo {
   size_bytes: number
   url: string
 }
->>>>>>> Stashed changes

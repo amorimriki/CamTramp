@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Dashboard } from './pages/Dashboard'
-<<<<<<< Updated upstream
-=======
 import { NetworkAccess } from './components/NetworkAccess'
 import { Recordings } from './pages/Recordings'
->>>>>>> Stashed changes
 import { Settings } from './pages/Settings'
 import './App.css'
 
@@ -42,9 +39,6 @@ function App() {
           </button>
         </nav>
       </header>
-<<<<<<< Updated upstream
-      <main className="app__main">{view === 'dashboard' ? <Dashboard /> : <Settings />}</main>
-=======
       <main className="app__main">
         {view === 'dashboard' && <Dashboard />}
         {view === 'recordings' && <Recordings />}
@@ -53,7 +47,6 @@ function App() {
       <footer className="app__footer">
         <NetworkAccess />
       </footer>
->>>>>>> Stashed changes
     </div>
   )
 }
