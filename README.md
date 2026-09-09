@@ -20,9 +20,8 @@ internet.
 | Acesso a partir de outro dispositivo na rede (IP local + código QR) | ✅ |
 | Arranque automático da aplicação e do browser no login (Linux) | ✅ |
 | Múltiplas câmaras em simultâneo | ✅ (testado com uma; a arquitetura suporta várias) |
-| Guardar uma execução como ficheiro permanente | ❌ por implementar (botão "Guardar" desativado no frontend) |
-| Estado em tempo real via WebSocket | ❌ por implementar (usa-se polling HTTP) |
-| Reprodução sincronizada entre câmaras, slow motion, análise por visão computacional | ❌ ideias para versões futuras (ver secção 15) |
+| Gravação automática dos últimos 20 min (4 ficheiros .mp4 de 5 min, por câmara) | ✅ (ver secção 16) |
+| Estado em tempo real via WebSocket (a correr + buffer de cada câmara) | ✅ |
 
 ## 2. Arquitetura
 
@@ -40,14 +39,16 @@ internet.
    FastAPI (backend/)
      • serve o .m3u8/.ts por HTTP em /streams/{id}/...
      • API REST para gerir câmaras e o ciclo de vida do FFmpeg
+     • WebSocket (/ws/status) difunde o estado das câmaras em tempo real
      • descoberta de câmaras na rede local (nmap) e deteção do IP local
      • guarda a configuração em backend/database/db.json
         │
         ▼
    React + hls.js (frontend/)
-     • Dashboard: grelha com o vídeo ao vivo de cada câmara
+     • Dashboard: grelha com o vídeo ao vivo de cada câmara, estado em
+       tempo real via WebSocket
      • Configuração: CRUD de câmaras + descoberta automática na rede
-     • Cabeçalho: IP local + código QR para abrir a app noutro dispositivo
+     • Rodapé: IP local + código QR para abrir a app noutro dispositivo
 ```
 
 O FFmpeg é o único componente que fala RTSP com as câmaras. O "buffer" não
@@ -69,7 +70,7 @@ janela está a reproduzir.
 | Player de vídeo | hls.js (Safari usa o suporte nativo a HLS) |
 | Streaming para o browser | HLS |
 | Código QR (acesso a partir de outro dispositivo) | Encoder local vendorizado, sem dependências nem rede (ver secção 4) |
-| Comunicação frontend ↔ backend | REST HTTP (polling a cada 1,5s para estado/buffer) |
+| Comunicação frontend ↔ backend | REST HTTP (ações/CRUD) + WebSocket (estado das câmaras em tempo real, secção 15) |
 
 ## 4. Estrutura do projeto
 
@@ -87,16 +88,20 @@ CamTramp/
 │   ├── api/
 │   │   ├── cameras.py               # CRUD de câmaras + teste de ligação RTSP
 │   │   ├── buffer.py                # estado do stream, start/stop, resumo do buffer
+│   │   ├── ws.py                     # WS /ws/status — estado em tempo real (secção 15)
 │   │   ├── system.py                # IP local desta máquina (para o código QR)
 │   │   ├── discovery.py             # descoberta de câmaras na rede local (nmap)
-│   │   └── recordings.py            # stub — por implementar
+│   │   └── recordings.py            # GET /api/recordings — listar gravações (secção 16)
 │   ├── services/
 │   │   ├── camera_manager.py        # ciclo de vida das câmaras (start_all_enabled, etc.)
 │   │   ├── stream_manager.py        # processos FFmpeg: deteção de codec, comando HLS
 │   │   ├── buffer_manager.py        # lê o .m3u8 → resumo do buffer disponível
+│   │   ├── status_broadcaster.py    # difunde o estado das câmaras via WebSocket (secção 15)
 │   │   ├── discovery.py             # varredura nmap + deteção do IP local
-│   │   └── recording_manager.py     # stub — por implementar
-│   ├── models/camera.py             # modelos Pydantic (validação de rtsp_url, ...)
+│   │   └── recording_manager.py     # lista/rotaciona os .mp4 gravados (secção 16)
+│   ├── models/
+│   │   ├── camera.py                # modelos Pydantic (validação de rtsp_url, ...)
+│   │   └── recording.py             # modelo Pydantic de uma gravação (secção 16)
 │   ├── database/
 │   │   ├── database.py              # leitura/escrita atómica do JSON, com lock
 │   │   └── db.json                  # dados reais — não versionado
@@ -104,20 +109,24 @@ CamTramp/
 │   └── storage/                     # buffer HLS + logs do FFmpeg — não versionado
 │       ├── buffer/<camera_id>/       # stream.m3u8 + segment_XXXXX.ts
 │       ├── logs/camera_<id>.log      # stdout/stderr do FFmpeg dessa câmara
-│       └── recordings/               # (por usar)
+│       └── recordings/<camera_id>/   # ficheiros .mp4 gravados (secção 16) — não versionado
 └── frontend/
     └── src/
-        ├── api.ts                    # cliente HTTP para o backend
+        ├── api.ts                    # cliente HTTP para o backend (inclui listRecordings)
         ├── types.ts                  # tipos TS espelhando os modelos do backend
-        ├── lib/qrcode.ts              # encoder de códigos QR (usa vendor/qrcode-core)
+        ├── lib/
+        │   ├── qrcode.ts               # encoder de códigos QR (usa vendor/qrcode-core)
+        │   ├── statusSocket.ts         # ligação WebSocket partilhada (secção 15)
+        │   └── useCameraStatus.ts      # hook: estado em tempo real de uma câmara
         ├── vendor/qrcode-core/        # adaptação ES modules do codificador "core" do pacote npm "qrcode"
         ├── components/
         │   ├── CameraCard.tsx         # vídeo (hls.js), fase de carregamento, buffer, ligar/parar
         │   ├── CameraForm.tsx         # criar/editar câmara + descoberta na rede local
         │   ├── QrCode.tsx             # renderiza um código QR como SVG inline
-        │   └── NetworkAccess.tsx      # mostra o IP local + código QR no cabeçalho
+        │   └── NetworkAccess.tsx      # mostra o IP local + código QR no rodapé
         └── pages/
             ├── Dashboard.tsx          # grelha de câmaras (ecrã principal)
+            ├── Recordings.tsx         # tabela de gravações automáticas (secção 16)
             └── Settings.tsx           # tabela de configuração das câmaras
 ```
 
@@ -324,13 +333,23 @@ POST   /api/cameras/{id}/stream/start  # arrancar o streaming da câmara
 POST   /api/cameras/{id}/stream/stop   # parar o streaming da câmara
 GET    /api/cameras/{id}/buffer        # segmentos/duração disponíveis para recuar
 
+WS     /ws/status                      # estado (a correr + buffer) de todas as câmaras em tempo real (ver secção 15)
+
 GET    /api/system/network             # IP local desta máquina (para o código QR)
 GET    /api/discovery/scan             # varre a rede local (nmap) por câmaras RTSP
 
+GET    /api/recordings                 # listar gravações automáticas (opcional: ?camera_id=)
+
 GET    /streams/{id}/stream.m3u8       # playlist HLS (ficheiros estáticos)
+GET    /recordings/{camera_id}/{ficheiro}.mp4  # ficheiro de gravação (ficheiros estáticos, secção 16)
 GET    /api/health                     # health check
 GET    /docs                           # Swagger UI (documentação interativa)
 ```
+
+O dashboard já não usa `GET .../stream` nem `GET .../buffer` em *polling*
+— esses dois continuam disponíveis (úteis para testar com `curl`/Swagger,
+ou para uma futura integração externa), mas o frontend recebe agora tudo
+isto em tempo real pelo WebSocket da secção 15.
 
 ## 12. Armazenamento e dados
 
@@ -384,20 +403,94 @@ GET    /docs                           # Swagger UI (documentação interativa)
 O número de câmaras e a resolução/FPS de cada stream têm impacto direto no
 uso de CPU, sobretudo quando é preciso transcodificar (câmaras HEVC).
 
-## 15. Roadmap
+## 15. Estado em tempo real (WebSocket)
+
+O Dashboard não faz *polling* HTTP ao estado das câmaras — usa uma única
+ligação WebSocket (`WS /ws/status`, ver secção 11) partilhada entre todas
+as `CameraCard` e todos os separadores/dispositivos com o dashboard
+aberto:
+
+1. Ao ligar, o `ConnectionManager` (`backend/services/status_broadcaster.py`)
+   aceita a ligação e envia logo um "retrato" (snapshot) do estado atual
+   de todas as câmaras (a correr ou não, e o resumo do buffer de quem
+   estiver a correr) — para o cliente não ficar às escuras à espera do
+   próximo ciclo.
+2. Um ciclo em segundo plano (`broadcast_loop`, arrancado no `lifespan` do
+   `main.py`) volta a enviar esse retrato a todos os clientes ligados a
+   cada 1 segundo — isto cobre uma câmara que caia sozinha (o FFmpeg
+   morre sem ninguém ter carregado em "Parar"), já que corre
+   independentemente de haver algum pedido a perguntar.
+3. Arrancar ou parar uma câmara (`POST .../stream/start` ou `.../stop`,
+   secção 11) dispara também uma difusão imediata
+   (`status_broadcaster.broadcast_now()`), para essa mudança chegar ao
+   ecrã quase de imediato em vez de esperar pelo próximo tick do ciclo.
+
+No frontend, `frontend/src/lib/statusSocket.ts` mantém uma única ligação
+WebSocket para toda a app (não uma por câmara) — abre-a quando a primeira
+`CameraCard` se monta e fecha-a quando a última se desmonta — com
+reconexão automática e *backoff* exponencial (até 10s) se a ligação cair.
+Cada `CameraCard` lê o seu próprio estado dessa ligação partilhada através
+do hook `frontend/src/lib/useCameraStatus.ts`.
+
+Isto substitui o esquema anterior, em que cada `CameraCard` perguntava
+diretamente ao backend a cada 1,5 segundos (`GET .../stream` +
+`GET .../buffer`, por câmara) — com N câmaras abertas, eram N × 2 pedidos
+HTTP a cada 1,5s, sempre, mesmo sem nada ter mudado. Com o WebSocket, o
+custo de ler o `.m3u8` de cada câmara passa a ser pago uma única vez por
+tick, partilhado por todos os clientes ligados, e as mudanças de estado
+chegam ao ecrã mais depressa.
+
+## 16. Gravação automática
+
+Já não existe um botão "Guardar" manual: enquanto uma câmara está a
+transmitir (stream "a correr"), o FFmpeg grava automaticamente e em
+contínuo os últimos 20 minutos dessa câmara, divididos em 4 ficheiros
+`.mp4` de 5 minutos cada, com rotação automática dos mais antigos.
+
+**Como é gerado (um único encode, duas saídas)** — `stream_manager.py`
+monta o comando FFmpeg com o muxer `tee` (`-f tee -map 0:v`), que permite
+ao mesmo passo de codificação (seja `-c:v copy`, quando a câmara já produz
+H.264, seja transcodificação para H.264 nas restantes) alimentar em
+simultâneo:
+
+1. a saída HLS já existente (`stream.m3u8` + segmentos `.ts`, para o
+   vídeo ao vivo/buffer — secção 5);
+2. uma nova saída com o muxer `segment` e `-strftime 1`, que grava
+   ficheiros `.mp4` nomeados com a hora real a que cada um começou
+   (`backend/storage/recordings/<camera_id>/AAAAMMDD_HHMMSS.mp4`), a
+   cada `RECORDING_SEGMENT_SECONDS` (300s = 5 min, `backend/config/settings.py`).
+
+Isto tem o custo de CPU de **um único encode**, não dois — não há
+transcodificação em duplicado só para a gravação.
+
+**Cortes limpos aos 5 minutos** — tanto o HLS como o `segment` muxer só
+conseguem cortar um ficheiro num keyframe existente. Em modo `-c:v copy`
+(câmara já H.264), os cortes ficam ao sabor dos keyframes que a própria
+câmara gerar — uma limitação pré-existente, igual à do buffer HLS. Em modo
+transcodificação, o `-force_key_frames` que já existia para o HLS
+(alinhado a `SEGMENT_SECONDS`) força um keyframe a cada 300 segundos
+também, porque 300 é um múltiplo exato desse intervalo — não foi preciso
+nenhuma expressão de keyframes adicional só para a gravação.
+
+**Rotação e limpeza** — `backend/services/recording_manager.py` corre em
+segundo plano (`cleanup_loop`, arrancado no `lifespan` do `main.py`) e, a
+cada ciclo, mantém por câmara apenas os `RECORDING_SEGMENTS_TO_KEEP + 1`
+ficheiros mais recentes (5, não 4), apagando os restantes. A margem de +1
+existe para nunca haver risco de apagar um ficheiro que o FFmpeg ainda
+esteja a escrever nesse preciso momento — só o quinto ficheiro mais antigo
+(já garantidamente fechado) é removido.
+
+**No frontend**, a nova página "Gravações" (`frontend/src/pages/Recordings.tsx`,
+via `GET /api/recordings`) lista, por câmara, o início, o tamanho e uma
+hiperligação de transferência para cada ficheiro gravado
+(`GET /recordings/{camera_id}/{ficheiro}.mp4`, ficheiros estáticos).
+
+## 17. Roadmap
 
 Por ordem de prioridade previsível:
 
-- **Gravação de execuções** — implementar `recording_manager.py`/`api/recordings.py`
-  para guardar um excerto do buffer como `.mp4` permanente (o botão
-  "Guardar" já existe no frontend, só desativado).
-- **Estado em tempo real via WebSocket**, para substituir o polling atual
-  e reduzir a latência da informação de estado (câmara online/offline).
 - **Múltiplas câmaras em simultâneo em produção** — validar desempenho
   com mais do que uma câmara a transcodificar ao mesmo tempo num
   Raspberry Pi real.
-- **Análise avançada** — reprodução sincronizada entre câmaras, slow
-  motion, reprodução frame-a-frame, marcação de início/fim de um salto,
-  exportação de vídeo.
-- **Visão computacional** — deteção/tracking do atleta, altura do salto,
-  rotação, análise técnica automática.
+- **Análise avançada** — reprodução frame-a-frame, marcação de
+  início/fim de um salto, exportação de vídeo.

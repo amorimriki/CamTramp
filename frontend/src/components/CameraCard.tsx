@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
 import { api } from '../api'
-import type { BufferSummary, Camera } from '../types'
+import { useCameraStatus } from '../lib/useCameraStatus'
+import type { Camera } from '../types'
 
 interface Props {
   camera: Camera
@@ -22,45 +23,21 @@ const MAX_LOADING_MS = 60_000 // limite da fase de carregamento (1 min)
 export function CameraCard({ camera }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
-  const [running, setRunning] = useState(false)
-  const [buffer, setBuffer] = useState<BufferSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadingStartedAt, setLoadingStartedAt] = useState<number | null>(null)
   const [loadingElapsedMs, setLoadingElapsedMs] = useState(0)
   const [forceReady, setForceReady] = useState(false)
 
+  // Estado da câmara (a correr + resumo do buffer) em tempo real, via
+  // WebSocket partilhado (ver lib/statusSocket.ts) — substitui o antigo
+  // polling HTTP a cada 1,5s que existia aqui.
+  const status = useCameraStatus(camera.id)
+  const running = status?.running ?? false
+  const buffer = status?.buffer ?? null
+
   const bufferReady = buffer !== null && buffer.available && buffer.segment_count >= MIN_READY_SEGMENTS
   const ready = bufferReady || forceReady
-
-  // acompanha o estado do stream e do buffer periodicamente
-  useEffect(() => {
-    let cancelled = false
-
-    const poll = async () => {
-      try {
-        const status = await api.streamStatus(camera.id)
-        if (cancelled) return
-        setRunning(status.running)
-
-        if (status.running) {
-          const summary = await api.bufferSummary(camera.id)
-          if (!cancelled) setBuffer(summary)
-        } else {
-          setBuffer(null)
-        }
-      } catch {
-        // falhas pontuais de polling não devem "piscar" a interface
-      }
-    }
-
-    poll()
-    const interval = setInterval(poll, 1500)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [camera.id])
 
   // marca o início da fase de carregamento assim que o stream fica "running"
   useEffect(() => {
@@ -130,11 +107,13 @@ export function CameraCard({ camera }: Props) {
     try {
       if (running) {
         await api.stopStream(camera.id)
-        setRunning(false)
       } else {
         await api.startStream(camera.id)
-        setRunning(true)
       }
+      // o novo estado chega por WebSocket quase de imediato — o backend
+      // envia uma atualização assim que a ação termina (ver
+      // status_broadcaster.broadcast_now() em api/buffer.py), por isso não
+      // é preciso atualizar nada aqui manualmente.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Falha ao ligar/desligar o stream')
     } finally {
@@ -185,13 +164,6 @@ export function CameraCard({ camera }: Props) {
       <div className="camera-card__actions">
         <button type="button" onClick={toggleStream} disabled={busy}>
           {running ? 'Parar' : 'Ligar'}
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Gravação de execuções — próxima fase (recording_manager)"
-        >
-          Guardar
         </button>
       </div>
     </div>

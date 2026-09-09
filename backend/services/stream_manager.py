@@ -14,6 +14,12 @@ Para cada câmara mantém-se um processo FFmpeg que:
     - Mantém apenas os últimos `buffer_seconds / SEGMENT_SECONDS`
       segmentos (hls_flags delete_segments), o que implementa
       diretamente a "janela deslizante" descrita no README secção 3.
+    - Em paralelo (via o muxer "tee", sem gastar CPU a codificar duas
+      vezes), grava também ficheiros .mp4 permanentes de
+      RECORDING_SEGMENT_SECONDS com o nome pelo timestamp de início —
+      as gravações automáticas dos últimos 20 minutos (ver README
+      secção "Gravações automáticas" e services/recording_manager.py,
+      que trata da rotação).
 
 Este módulo não sabe nada de HTTP/FastAPI — só gere processos FFmpeg
 e ficheiros em disco. É usado por services/camera_manager.py.
@@ -32,7 +38,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from config.settings import BUFFER_DIR, FFMPEG_BINARY, FFPROBE_BINARY, LOGS_DIR, MAX_TRANSCODE_WIDTH, SEGMENT_SECONDS
+from config.settings import (
+    BUFFER_DIR,
+    FFMPEG_BINARY,
+    FFPROBE_BINARY,
+    LOGS_DIR,
+    MAX_TRANSCODE_WIDTH,
+    RECORDING_SEGMENT_SECONDS,
+    RECORDINGS_DIR,
+    SEGMENT_SECONDS,
+)
 
 _lock = threading.Lock()
 _processes: dict[int, subprocess.Popen] = {}
@@ -58,6 +73,16 @@ def _camera_dir(camera_id: int) -> Path:
 
 def playlist_path(camera_id: int) -> Path:
     return _camera_dir(camera_id) / "stream.m3u8"
+
+
+def recording_dir(camera_id: int) -> Path:
+    """Pasta onde ficam as gravações permanentes (.mp4) desta câmara — ver
+    services/recording_manager.py para a rotação (manter só as últimas
+    RECORDING_SEGMENTS_TO_KEEP). Distinta de _camera_dir (buffer HLS
+    temporário), para o arranque do stream nunca apagar gravações."""
+    d = RECORDINGS_DIR / str(camera_id)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def _hls_list_size(buffer_seconds: int) -> int:
@@ -138,7 +163,38 @@ def _video_codec_args(rtsp_url: str, camera_id: int) -> list[str]:
 
 def _build_ffmpeg_command(rtsp_url: str, camera_id: int, buffer_seconds: int) -> list[str]:
     camera_dir = _camera_dir(camera_id)
+    rec_dir = recording_dir(camera_id)
     list_size = _hls_list_size(buffer_seconds)
+
+    # Um único FFmpeg, um único encode (copy ou transcode, ver
+    # _video_codec_args) — o muxer "tee" duplica os pacotes já codificados
+    # para dois destinos em paralelo, sem gastar CPU a codificar duas vezes:
+    #   1. o buffer HLS de sempre (janela deslizante, "ao vivo");
+    #   2. gravações permanentes de RECORDING_SEGMENT_SECONDS em .mp4, com o
+    #      nome do ficheiro a vir do timestamp real de início de cada uma
+    #      (-strftime 1). A rotação (manter só as últimas
+    #      RECORDING_SEGMENTS_TO_KEEP) é feita à parte por
+    #      services/recording_manager.py, porque o "segment_wrap" do ffmpeg
+    #      não funciona com nomes por timestamp (-strftime).
+    #
+    # Nota sobre precisão dos cortes das gravações: no caminho de
+    # transcodificação, os keyframes forçados a cada SEGMENT_SECONDS (ver
+    # _video_codec_args) já caem também exatamente nos múltiplos de
+    # RECORDING_SEGMENT_SECONDS (300 é múltiplo de 2), por isso os ficheiros
+    # saem com a duração exata pedida. No caminho "-c:v copy" (câmara já em
+    # H.264) não é possível forçar keyframes — os cortes ficam ao sabor dos
+    # keyframes que a própria câmara já envia, tal como já acontece hoje
+    # com o -hls_time do buffer nesse mesmo caminho.
+    hls_leg = (
+        f"[f=hls:hls_time={SEGMENT_SECONDS}:hls_list_size={list_size}:"
+        "hls_flags=delete_segments+append_list+omit_endlist+program_date_time:"
+        f"hls_segment_filename={camera_dir / 'segment_%05d.ts'}]{playlist_path(camera_id)}"
+    )
+    recording_leg = (
+        f"[f=segment:segment_time={RECORDING_SEGMENT_SECONDS}:reset_timestamps=1:strftime=1]"
+        f"{rec_dir / '%Y%m%d_%H%M%S.mp4'}"
+    )
+
     return [
         FFMPEG_BINARY,
         "-loglevel", "warning",
@@ -152,12 +208,9 @@ def _build_ffmpeg_command(rtsp_url: str, camera_id: int, buffer_seconds: int) ->
         "-i", rtsp_url,
         "-an",                      # V1: sem áudio, só interessa o vídeo
         *_video_codec_args(rtsp_url, camera_id),
-        "-f", "hls",
-        "-hls_time", str(SEGMENT_SECONDS),
-        "-hls_list_size", str(list_size),
-        "-hls_flags", "delete_segments+append_list+omit_endlist+program_date_time",
-        "-hls_segment_filename", str(camera_dir / "segment_%05d.ts"),
-        str(playlist_path(camera_id)),
+        "-f", "tee",
+        "-map", "0:v",
+        f"{hls_leg}|{recording_leg}",
     ]
 
 

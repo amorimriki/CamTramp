@@ -12,6 +12,13 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8000',
       '/streams': 'http://localhost:8000',
+      // /ws/status: estado em tempo real das câmaras (ver backend/api/ws.py).
+      // Precisa de "ws: true" para o Vite também fazer o upgrade da ligação
+      // HTTP para WebSocket, não só pedidos HTTP normais.
+      '/ws': {
+        target: 'ws://localhost:8000',
+        ws: true,
+      },
     },
   },
 })

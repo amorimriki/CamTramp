@@ -249,6 +249,73 @@
   max-width: 420px;
 }
 
+/* --- Recordings --- */
+
+.recordings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.recordings__header button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #2f3542;
+  background: #1f2430;
+  color: #e6e8ec;
+}
+
+.recordings__hint {
+  color: #9aa1ad;
+  font-size: 0.85rem;
+  margin: -0.5rem 0 1rem;
+}
+
+.recordings__error {
+  color: #f87171;
+  margin-bottom: 1rem;
+}
+
+.recordings__table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #161a22;
+  border: 1px solid #262b36;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.recordings__table th,
+.recordings__table td {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #262b36;
+  font-size: 0.9rem;
+}
+
+.recordings__size {
+  color: #9aa1ad;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.recordings__row-actions a {
+  color: #3b82f6;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.recordings__row-actions a:hover,
+.recordings__row-actions a:focus-visible {
+  text-decoration: underline;
+}
+
+.recordings__empty {
+  color: #9aa1ad;
+  text-align: center;
+}
+
 /* --- CameraForm --- */
 
 .camera-form {

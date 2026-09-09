@@ -30,6 +30,22 @@ MAX_BUFFER_SECONDS = 120
 # Duração de cada segmento HLS/FFmpeg (ver README secção 4)
 SEGMENT_SECONDS = 2
 
+# Gravações automáticas e permanentes (ver README secção "Gravações
+# automáticas"): em vez de um botão manual de "Guardar", o FFmpeg escreve
+# sempre, em paralelo com o buffer HLS, ficheiros .mp4 de
+# RECORDING_SEGMENT_SECONDS, com o nome a refletir o timestamp de início
+# de cada um. Só se mantêm os últimos RECORDING_SEGMENTS_TO_KEEP ficheiros
+# por câmara (rotação feita por services/recording_manager.py, já que o
+# ffmpeg não sabe rodar ficheiros com nome por timestamp sozinho).
+#
+# TEM de ser múltiplo de SEGMENT_SECONDS: os keyframes forçados para o HLS
+# (a cada SEGMENT_SECONDS, ver stream_manager._video_codec_args) só
+# permitem cortes limpos nas gravações se calharem exatamente nos mesmos
+# instantes — 300 é múltiplo de 2, por isso não é preciso forçar
+# keyframes uma segunda vez só para as gravações.
+RECORDING_SEGMENT_SECONDS = 300  # 5 minutos por ficheiro
+RECORDING_SEGMENTS_TO_KEEP = 4   # 4 x 5 min = últimos 20 minutos guardados
+
 # Binário do FFmpeg (ajustar se não estiver no PATH)
 FFMPEG_BINARY = "ffmpeg"
 FFPROBE_BINARY = "ffprobe"  # usado para testar a ligação a uma câmara sem arrancar o buffer

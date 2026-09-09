@@ -36,3 +36,31 @@ export interface TestConnectionResult {
   ok: boolean
   message: string
 }
+<<<<<<< Updated upstream
+=======
+
+export interface NetworkInfo {
+  ip: string
+}
+
+export interface DiscoveredDevice {
+  ip: string
+  port: number
+  suggested_url: string
+}
+
+export interface ScanResult {
+  devices: DiscoveredDevice[]
+}
+
+// Espelha backend/models/recording.py — um ficheiro .mp4 gravado
+// automaticamente (ver secção "Gravação automática" do README).
+export interface RecordingInfo {
+  camera_id: number
+  camera_name: string
+  filename: string
+  started_at: string
+  size_bytes: number
+  url: string
+}
+>>>>>>> Stashed changes
