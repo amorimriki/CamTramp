@@ -136,3 +136,13 @@ def delete_camera(camera_id: int) -> bool:
             return False
         _write(data)
         return True
+
+
+def reset_db() -> None:
+    """Repõe a base de dados para o estado inicial vazio (apaga todas as
+    câmaras guardadas). Usado pelo botão "Repor base de dados e logs" em
+    Definições (ver backend/api/system.py) — uma operação destrutiva; a
+    proteção por password fica do lado do endpoint que chama esta função,
+    não aqui."""
+    with _lock:
+        _write(dict(_EMPTY_DB))

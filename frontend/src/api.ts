@@ -9,6 +9,7 @@ import type {
   CameraInput,
   NetworkInfo,
   RecordingInfo,
+  RestartResult,
   ScanResult,
   StreamStatus,
   TestConnectionResult,
@@ -73,4 +74,23 @@ export const api = {
     request<RecordingInfo[]>(
       camera_id === undefined ? '/api/recordings' : `/api/recordings?camera_id=${camera_id}`
     ),
+
+  // Reinicia o backend+frontend (só funciona instalado como serviço
+  // systemd --user, ver backend/api/system.py e README secção 10). Tal
+  // como stopApp/resetApp, pede sempre a password de administração
+  // (ADMIN_ACTION_PASSWORD em backend/config/settings.py).
+  restartApp: (password: string) =>
+    request<RestartResult>('/api/system/restart', { method: 'POST', body: JSON.stringify({ password }) }),
+
+  // Para o backend+frontend e fecha a aplicação (não volta a arrancar
+  // sozinho, ao contrário do restart) — mesmo requisito de serviço
+  // systemd --user.
+  stopApp: (password: string) =>
+    request<RestartResult>('/api/system/stop', { method: 'POST', body: JSON.stringify({ password }) }),
+
+  // Apaga todas as câmaras guardadas e os logs de FFmpeg (não apaga
+  // gravações nem o buffer de vídeo). Funciona também em desenvolvimento,
+  // ao contrário de restart/stop.
+  resetApp: (password: string) =>
+    request<RestartResult>('/api/system/reset', { method: 'POST', body: JSON.stringify({ password }) }),
 }

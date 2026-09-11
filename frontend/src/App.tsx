@@ -10,6 +10,18 @@ type View = 'dashboard' | 'recordings' | 'settings'
 function App() {
   const [view, setView] = useState<View>('dashboard')
 
+  // Em ecrãs estreitos/verticais (telemóvel) a navegação passa a um menu
+  // lateral (ver App.css, @media max-width: 768px) em vez dos 3 botões ao
+  // lado do logótipo — não cabem todos na mesma linha sem sobrepor o
+  // título. Este estado controla se esse menu está aberto; em ecrãs
+  // largos é ignorado (o CSS mantém sempre a navegação visível em linha).
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const handleNavigate = (next: View) => {
+    setView(next)
+    setMenuOpen(false)
+  }
+
   return (
     <div className="app">
       <header className="app__header">
@@ -36,12 +48,40 @@ function App() {
             <span className="app__tagline">Vídeo com buffer para trampolim</span>
           </div>
         </div>
-        <nav aria-label="Navegação principal">
+
+        <button
+          type="button"
+          className="app__menu-toggle"
+          aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={menuOpen}
+          aria-controls="app-nav"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+            {menuOpen ? (
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            ) : (
+              <path
+                d="M4 7h16M4 12h16M4 17h16"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </button>
+
+        <nav id="app-nav" aria-label="Navegação principal" className={menuOpen ? 'is-open' : ''}>
           <button
             type="button"
             className={view === 'dashboard' ? 'is-active' : ''}
             aria-current={view === 'dashboard' ? 'page' : undefined}
-            onClick={() => setView('dashboard')}
+            onClick={() => handleNavigate('dashboard')}
           >
             Câmaras
           </button>
@@ -49,7 +89,7 @@ function App() {
             type="button"
             className={view === 'recordings' ? 'is-active' : ''}
             aria-current={view === 'recordings' ? 'page' : undefined}
-            onClick={() => setView('recordings')}
+            onClick={() => handleNavigate('recordings')}
           >
             Gravações
           </button>
@@ -57,11 +97,15 @@ function App() {
             type="button"
             className={view === 'settings' ? 'is-active' : ''}
             aria-current={view === 'settings' ? 'page' : undefined}
-            onClick={() => setView('settings')}
+            onClick={() => handleNavigate('settings')}
           >
             Configuração
           </button>
         </nav>
+
+        {menuOpen && (
+          <div className="app__nav-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+        )}
       </header>
       <main className="app__main">
         {view === 'dashboard' && <Dashboard />}

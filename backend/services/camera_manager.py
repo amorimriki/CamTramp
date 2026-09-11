@@ -21,7 +21,7 @@ from typing import Optional
 from config.settings import BUFFER_SECONDS
 from database import database as db
 from models.camera import Camera, CameraCreate, CameraUpdate
-from services import stream_manager
+from services import recording_manager, stream_manager
 
 STATUS_STOPPED = "stopped"
 STATUS_RUNNING = "running"
@@ -70,7 +70,14 @@ def start_stream(camera_id: int) -> None:
         raise ValueError(f"Câmara {camera_id} não existe")
     # o buffer é sempre BUFFER_SECONDS, independentemente do que estiver
     # guardado (ver _to_camera acima)
-    stream_manager.start(camera_id, camera["rtsp_url"], BUFFER_SECONDS)
+    stream_manager.start(camera_id, camera["rtsp_url"], BUFFER_SECONDS, camera_name=camera["name"])
+    # cada arranque começa logo um novo ficheiro de gravação (ver
+    # stream_manager._build_ffmpeg_command) — força já aqui a rotação em vez
+    # de esperar pelo próximo tick do ciclo em segundo plano, para vários
+    # arranques/paragens seguidos (ex.: durante testes) não deixarem
+    # acumular ficheiros a mais até esse ciclo correr (ver
+    # services/recording_manager.py).
+    recording_manager.cleanup_once()
 
 
 def stop_stream(camera_id: int) -> None:

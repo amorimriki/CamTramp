@@ -13,7 +13,7 @@ internet.
 | Adicionar/editar/remover câmaras (nome, URL RTSP) | ✅ |
 | Testar ligação RTSP e detetar o codec de vídeo | ✅ |
 | Vídeo ao vivo por câmara (HLS) | ✅ |
-| Buffer contínuo com janela deslizante (fixo, 5 min, para todas as câmaras) | ✅ |
+| Buffer contínuo com janela deslizante (fixo, 8 min, para todas as câmaras) | ✅ |
 | Recuar no vídeo dentro da janela do buffer | ✅ (barra do próprio `<video>`) |
 | Arranque automático do streaming ao ligar o servidor | ✅ |
 | Descoberta automática de câmaras na rede local (nmap) | ✅ |
@@ -22,6 +22,9 @@ internet.
 | Múltiplas câmaras em simultâneo | ✅ (testado com uma; a arquitetura suporta várias) |
 | Gravação automática dos últimos 20 min (4 ficheiros .mp4 de 5 min, por câmara) | ✅ (ver secção 16) |
 | Estado em tempo real via WebSocket (a correr + buffer de cada câmara) | ✅ |
+| Seletor de marca da câmara no formulário (Teruhal, Jooan) — monta o URL RTSP sozinho | ✅ (ver secção 7) |
+| Interface adaptada a telemóvel (menu lateral, tabelas em cartões) | ✅ (ver secção 9) |
+| Reiniciar/parar a aplicação e repor a base de dados a partir da interface, com password | ✅ (ver secção 10) |
 
 ## 2. Arquitetura
 
@@ -89,7 +92,7 @@ CamTramp/
 │   │   ├── cameras.py               # CRUD de câmaras + teste de ligação RTSP
 │   │   ├── buffer.py                # estado do stream, start/stop, resumo do buffer
 │   │   ├── ws.py                     # WS /ws/status — estado em tempo real (secção 15)
-│   │   ├── system.py                # IP local desta máquina (para o código QR)
+│   │   ├── system.py                # IP local (código QR) + reiniciar/parar/repor a app, com password (secção 10)
 │   │   ├── discovery.py             # descoberta de câmaras na rede local (nmap)
 │   │   └── recordings.py            # GET /api/recordings — listar gravações (secção 16)
 │   ├── services/
@@ -103,7 +106,7 @@ CamTramp/
 │   │   ├── camera.py                # modelos Pydantic (validação de rtsp_url, ...)
 │   │   └── recording.py             # modelo Pydantic de uma gravação (secção 16)
 │   ├── database/
-│   │   ├── database.py              # leitura/escrita atómica do JSON, com lock
+│   │   ├── database.py              # leitura/escrita atómica do JSON, com lock (inclui reset_db)
 │   │   └── db.json                  # dados reais — não versionado
 │   ├── config/settings.py           # caminhos, duração fixa do buffer, largura máx. de transcode
 │   └── storage/                     # buffer HLS + logs do FFmpeg — não versionado
@@ -121,13 +124,13 @@ CamTramp/
         ├── vendor/qrcode-core/        # adaptação ES modules do codificador "core" do pacote npm "qrcode"
         ├── components/
         │   ├── CameraCard.tsx         # vídeo (hls.js), fase de carregamento, buffer, ligar/parar
-        │   ├── CameraForm.tsx         # criar/editar câmara + descoberta na rede local
+        │   ├── CameraForm.tsx         # criar/editar câmara + descoberta na rede local + seletor de marca (secção 7)
         │   ├── QrCode.tsx             # renderiza um código QR como SVG inline
         │   └── NetworkAccess.tsx      # mostra o IP local + código QR no rodapé
         └── pages/
             ├── Dashboard.tsx          # grelha de câmaras (ecrã principal)
-            ├── Recordings.tsx         # tabela de gravações automáticas (secção 16)
-            └── Settings.tsx           # tabela de configuração das câmaras
+            ├── Recordings.tsx         # gravações automáticas, uma lista por câmara (secção 16)
+            └── Settings.tsx           # câmaras + ações de sistema: reiniciar/parar/repor, com password (secção 10)
 ```
 
 ## 5. Como funciona o streaming e o buffer
@@ -143,7 +146,7 @@ CamTramp/
    `stream.m3u8` do tipo *live* com janela deslizante
    (`-hls_flags delete_segments+append_list+omit_endlist+program_date_time`):
    o número de segmentos mantidos = `BUFFER_SECONDS / SEGMENT_SECONDS`.
-   `BUFFER_SECONDS` é fixo (5 minutos) para todas as câmaras — deixou de
+   `BUFFER_SECONDS` é fixo (8 minutos) para todas as câmaras — deixou de
    ser configurável por câmara, para simplificar a operação do sistema
    (ver secção 7).
 4. `-fflags +discardcorrupt -err_detect ignore_err` fazem o FFmpeg tolerar
@@ -223,13 +226,45 @@ valores estão centralizados em `backend/config/settings.py`:
 
 | Valor | Por omissão | Descrição |
 |---|---|---|
-| `BUFFER_SECONDS` | 300 (5 min) | Duração fixa do buffer, igual para todas as câmaras |
+| `BUFFER_SECONDS` | 480 (8 min) | Duração fixa do buffer, igual para todas as câmaras |
 | `SEGMENT_SECONDS` | 2 | Duração de cada segmento HLS |
 | `MAX_TRANSCODE_WIDTH` | 1280 | Largura máx. ao transcodificar HEVC → H.264 |
 
 Não existem ficheiros de segredos/`.env` — o único dado sensível é o URL
 RTSP de cada câmara (pode incluir utilizador/palavra-passe), guardado só
 em `backend/database/db.json`, que **não é versionado** (ver secção 12).
+
+**Formato do URL RTSP por marca** — o formato do URL varia de câmara para
+câmara (nem todas pedem autenticação, e o "path" final do stream também
+muda). Por isso o formulário de adicionar/editar câmara
+(`frontend/src/components/CameraForm.tsx`) tem um seletor "Marca da
+câmara": ao escolher uma marca conhecida, mostra só os campos necessários
+(IP, porta, e utilizador/password quando a marca precisa) e constrói o
+`rtsp_url` final sozinho — por exemplo:
+
+| Marca | Formato do URL |
+|---|---|
+| Teruhal | `rtsp://IPADDRESS:554` (sem autenticação) |
+| Jooan | `rtsp://USER:PASSWORD@IPADDRESS:554/live/ch00_1` |
+
+A opção "Outra / indicar o URL RTSP manualmente" mantém o comportamento
+original — colar o URL completo à mão — para qualquer câmara fora desta
+lista. A marca escolhida não é guardada em lado nenhum: serve só para
+montar o `rtsp_url`, que continua a ser o único dado persistido. Para
+suportar mais uma marca, basta acrescentar uma entrada ao array `BRANDS`
+no topo do `CameraForm.tsx` (id, nome, se precisa de autenticação, porta
+por omissão e a função que monta o URL) — não é preciso mexer em mais
+nenhum sítio do formulário nem no backend.
+
+Para a marca **Jooan** em particular: o campo "Utilizador" nem aparece —
+usa-se sempre `admin` (é o utilizador de fábrica desta marca) — e o campo
+"Password" mostra um exemplo de referência. Antes de montar o `rtsp_url`,
+o utilizador e a password são sempre passados por `encodeURIComponent()`,
+porque caracteres especiais (como `@`) têm de ir codificados no URL
+(`%40`, etc.) ou a ligação RTSP falha. O formulário mostra ainda um aviso
+a lembrar para confirmar, nas definições da própria câmara Jooan, que o
+RTSP está ativado e que a autenticação (proteção por utilizador/password)
+está ligada.
 
 ## 8. Descoberta automática de câmaras na rede local
 
@@ -276,6 +311,24 @@ IP à mão.
   de segmentação automática de texto, que dependia do pacote `dijkstrajs`
   — aqui o modo é sempre fixado como *byte*, que é sempre correto para os
   URLs que este widget codifica).
+- **Interface adaptada a ecrãs pequenos/verticais** (telemóvel) —
+  `frontend/src/App.css` tem regras `@media` a partir de 768px, 640px e
+  480px de largura. A mudança mais visível é a navegação: em ecrã largo os
+  3 botões ("Câmaras", "Gravações", "Configuração") ficam ao lado do
+  logótipo, mas num ecrã estreito não cabem todos sem sobrepor o título —
+  por isso passam a um **menu lateral** (painel que desliza a partir da
+  direita), aberto por um botão de hambúrguer no canto superior direito e
+  fechado ao escolher uma opção, tocar fora do painel, ou voltar a
+  carregar no botão (`frontend/src/App.tsx`, estado `menuOpen`). A tabela
+  de gravações fica dentro de um contentor com scroll horizontal próprio
+  (`.table-scroll`) em vez de a página inteira deslizar para os lados; a
+  tabela de câmaras (Configuração) vai mais longe — abaixo de 640px deixa
+  de ser uma tabela e passa a uma lista de "cartões" empilhados, um por
+  câmara (nome, URL RTSP a quebrar linha, botões Editar/Remover), porque
+  aí o URL RTSP sozinho já não cabe ao lado do nome sem forçar scroll
+  horizontal constante (as etiquetas de cada campo vêm do atributo
+  `data-label` de cada `<td>`, ver `Settings.tsx`). A grelha de câmaras ao
+  vivo passa a uma única coluna abaixo de 480px.
 
 ## 10. Arranque automático no login (Linux)
 
@@ -290,22 +343,37 @@ Raspberry Pi dedicado no ginásio), `scripts/install-autostart.sh` instala:
    (`~/.config/autostart/camtramp-browser.desktop`) que, em ambiente
    gráfico, corre `scripts/open-browser.sh` no login: este script espera
    (até 60s) que o frontend responda em `http://localhost:5173` e só
-   depois abre o browser por omissão (`xdg-open`, com fallback para
-   `chromium-browser`/`chromium`/`firefox`) apontado a esse URL — evita
-   abrir o browser antes do backend/frontend estarem prontos.
+   depois abre o browser em **modo kiosk/ecrã inteiro** (`--kiosk` no
+   Chromium, `-kiosk` no Firefox — sem barra de endereço nem abas, ideal
+   para o ecrã dedicado do ginásio), com fallback para `xdg-open` (browser
+   por omissão do sistema, em janela normal) se nenhum dos dois estiver
+   instalado.
+3. A **desativação da suspensão/hibernação do sistema**
+   (`sudo systemctl mask sleep.target suspend.target hibernate.target
+   hybrid-sleep.target`) — este é um dispositivo dedicado que tem de
+   ficar sempre a gravar e acessível na rede, por isso não pode entrar em
+   suspensão por inatividade (ou, num portátil Debian, ao fechar a
+   tampa). "mask" é mais robusto do que desativar isto só nas definições
+   do ambiente gráfico, porque impede o pedido mesmo que venha de outro
+   sítio (gestor de energia, `systemctl suspend` manual, etc.).
 
-Instalação (no próprio Raspberry Pi/máquina Linux, como utilizador normal,
-sem `sudo`):
+Instalação (no próprio Raspberry Pi/máquina Linux, como utilizador
+normal):
 
 ```bash
 ./scripts/install-autostart.sh
 ```
 
+Os passos 1 e 2 não precisam de privilégios especiais; o passo 3 precisa
+de `sudo` (só para esse passo — o script pede a password nessa altura, se
+for preciso).
+
 O script também ativa `loginctl enable-linger` para o utilizador atual,
 para o serviço arrancar mesmo sem sessão gráfica interativa (ex.:
 Raspberry Pi com autologin em consola).
 
-Para desinstalar: `./scripts/uninstall-autostart.sh`.
+Para desinstalar (remove o serviço, a entrada de autostart, **e reativa**
+a suspensão/hibernação do sistema): `./scripts/uninstall-autostart.sh`.
 
 Úteis depois de instalado:
 
@@ -317,6 +385,48 @@ journalctl --user -u camtramp.service -f     # logs em direto
 Este arranque automático é específico de Linux/systemd (pensado para o
 Raspberry Pi de implantação, ver secção 14); em macOS continua a usar-se
 `./start.sh` manualmente durante o desenvolvimento.
+
+**Reiniciar/parar a aplicação sem SSH** — a página de Configuração
+("Sistema") tem três botões:
+
+| Botão | Endpoint | O que faz |
+|---|---|---|
+| Reiniciar aplicação | `POST /api/system/restart` | `systemctl --user restart camtramp.service` |
+| Parar aplicação | `POST /api/system/stop` | `systemctl --user stop camtramp.service` (não volta a arrancar sozinho) |
+| Repor tudo (câmaras, gravações e logs) | `POST /api/system/reset` | apaga todas as câmaras guardadas, os logs, as gravações e o buffer de vídeo |
+
+Reiniciar/parar são serviços `--user`, não precisam de `sudo`, e só
+funcionam quando o CamTramp foi instalado por este script — caso
+contrário (ex.: `./start.sh` manual em desenvolvimento) o botão devolve um
+erro a explicar isso. "Repor" é diferente: não depende do systemd (não
+mexe em nenhum processo do sistema, só nos ficheiros da própria
+aplicação), por isso funciona também em desenvolvimento — mas é
+destrutivo e sem forma de desfazer, por isso o frontend pede sempre
+confirmação antes de o enviar. Apaga a configuração das câmaras, os logs,
+**e também** as gravações permanentes (`storage/recordings/`) e o buffer
+de vídeo (`storage/buffer/`) — depois de as câmaras deixarem de existir na
+base de dados, esses ficheiros ficam órfãos (já não são acessíveis por
+nenhum id de câmara válido) e sem qualquer uso, por isso o reset limpa-os
+também em vez de os deixar a ocupar espaço em disco (as pastas em si não
+são apagadas, só o conteúdo).
+
+**Password de administração** — os três botões acima não têm nenhum
+campo de password sempre visível na página: ao carregar num deles,
+aparece um `window.prompt()` a pedir a password, mencionando a sugestão
+`Tr@mpolinsaae` no próprio texto da pergunta ("Password de administração
+(sugestão: Tr@mpolinsaae):", `ADMIN_PASSWORD_HINT` em `Settings.tsx`) — o
+campo em si fica vazio, como um placeholder real deixaria. Isto em vez de
+pré-preencher o campo com essa sugestão (o único "2º argumento" que
+`window.prompt()` tem, já que não existe placeholder real numa caixa de
+diálogo nativa): um valor pré-preenchido fica lá parecendo já escrito, e
+seria enviado tal e qual se a pessoa só carregasse OK sem reparar.
+Cancelar ou deixar o campo em branco aborta sem chamar a API. A password
+é verificada no backend contra `ADMIN_ACTION_PASSWORD`
+(`backend/config/settings.py`) — se uma for alterada sem a outra, a
+sugestão mostrada deixa de bater certo com a password real. É uma
+proteção simples contra alguém carregar sem querer nestes botões num ecrã
+partilhado no ginásio — não é uma autenticação real (não há utilizadores
+nem sessões nesta aplicação).
 
 ## 11. API
 
@@ -336,6 +446,9 @@ GET    /api/cameras/{id}/buffer        # segmentos/duração disponíveis para r
 WS     /ws/status                      # estado (a correr + buffer) de todas as câmaras em tempo real (ver secção 15)
 
 GET    /api/system/network             # IP local desta máquina (para o código QR)
+POST   /api/system/restart             # reinicia a app (pede password; só via arranque automático, secção 10)
+POST   /api/system/stop                # para a app (pede password; só via arranque automático, secção 10)
+POST   /api/system/reset               # apaga câmaras, logs, gravações e buffer (pede password; funciona sempre)
 GET    /api/discovery/scan             # varre a rede local (nmap) por câmaras RTSP
 
 GET    /api/recordings                 # listar gravações automáticas (opcional: ?camera_id=)
@@ -359,7 +472,15 @@ isto em tempo real pelo WebSocket da secção 15.
   repositório começa sem câmaras configuradas.
 - Cada câmara tem o seu log de FFmpeg em
   `backend/storage/logs/camera_<id>.log`, útil para diagnosticar problemas
-  de ligação/descodificação (ver secção 13).
+  de ligação/descodificação (ver secção 13). Cada vez que o stream de uma
+  câmara arranca, `stream_manager.start()` escreve no início dessa sessão
+  uma linha separadora com o nome da câmara, o IP (sem utilizador/password,
+  mesmo que o `rtsp_url` os tenha) e a data/hora exatas, ex.:
+  `==== [2026-09-11 12:18:22] Trampolim 1 (IP 192.168.0.108) — stream
+  iniciado ====` — o ficheiro acumula todas as sessões (não é limpo entre
+  arranques), pelo que este cabeçalho é o que permite distinguir onde
+  começa cada uma sem ter de cruzar com o `db.json` só para saber a que
+  câmara/IP pertence o `id` do nome do ficheiro.
 - Recomenda-se um SSD (USB 3.0 num Raspberry Pi) para o `storage/`, já que
   o buffer e futuras gravações fazem escrita contínua em disco.
 
@@ -495,21 +616,34 @@ também, porque 300 é um múltiplo exato desse intervalo — não foi preciso
 nenhuma expressão de keyframes adicional só para a gravação.
 
 **Rotação e limpeza** — `backend/services/recording_manager.py` corre em
-segundo plano (`cleanup_loop`, arrancado no `lifespan` do `main.py`) e, a
-cada ciclo, mantém por câmara apenas os `RECORDING_SEGMENTS_TO_KEEP + 1`
-ficheiros mais recentes (5, não 4), apagando os restantes. A margem de +1
-existe para nunca haver risco de apagar um ficheiro que o FFmpeg ainda
-esteja a escrever nesse preciso momento — só o quinto ficheiro mais antigo
-(já garantidamente fechado) é removido.
+segundo plano (`cleanup_loop`, arrancado no `lifespan` do `main.py`, a cada
+`CLEANUP_INTERVAL_SECONDS` = 10s) e mantém por câmara apenas os
+`RECORDING_SEGMENTS_TO_KEEP + 1` ficheiros mais recentes (5, não 4),
+apagando os restantes. A margem de +1 existe para nunca haver risco de
+apagar um ficheiro que o FFmpeg ainda esteja a escrever nesse preciso
+momento — só o quinto ficheiro mais antigo (já garantidamente fechado) é
+removido. Além deste ciclo periódico, a mesma limpeza (`cleanup_once()`) é
+também forçada de imediato: uma vez no arranque do backend (`main.py`,
+antes do ciclo arrancar) e sempre que uma câmara (re)arranca o stream
+(`services/camera_manager.start_stream`) — sem isto, vários
+arranques/paragens seguidos da mesma câmara num intervalo curto (comum
+durante testes) podiam deixar acumular mais ficheiros do que o previsto
+até ao próximo tick do ciclo.
 
-**No frontend**, a nova página "Gravações" (`frontend/src/pages/Recordings.tsx`,
-via `GET /api/recordings`) lista, por câmara, o início, o tamanho e um
-botão "Transferir" para descarregar cada ficheiro gravado
-(`GET /recordings/{camera_id}/{ficheiro}.mp4`, ficheiros estáticos), com
-um nome de ficheiro mais descritivo (nome da câmara + timestamp) do que o
-nome em disco. Em desenvolvimento, `frontend/vite.config.ts` faz proxy de
-`/recordings` para o backend (tal como já fazia para `/api` e `/streams`)
-— sem isto o download dava 404, por o pedido ficar só no servidor do Vite.
+**No frontend**, a página "Gravações" (`frontend/src/pages/Recordings.tsx`,
+via `GET /api/recordings` e `GET /api/cameras`) mostra uma lista/tabela
+**separada por câmara**, com o cabeçalho a usar o nome dado à câmara no
+formulário (a "identificação do trampolim", ex.: "Trampolim 1") — em vez
+de uma tabela única com as gravações de todas as câmaras misturadas.
+Câmaras sem gravações ainda aparecem (com uma mensagem "Ainda não há
+gravações desta câmara"), para não parecer que falta alguma. Cada linha
+mostra o início, o tamanho e um botão "Transferir" para descarregar o
+ficheiro (`GET /recordings/{camera_id}/{ficheiro}.mp4`, ficheiros
+estáticos), com um nome de ficheiro mais descritivo (nome da câmara +
+timestamp) do que o nome em disco. Em desenvolvimento,
+`frontend/vite.config.ts` faz proxy de `/recordings` para o backend (tal
+como já fazia para `/api` e `/streams`) — sem isto o download dava 404,
+por o pedido ficar só no servidor do Vite.
 
 ## 17. Roadmap
 

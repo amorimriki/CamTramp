@@ -62,12 +62,129 @@
   color: #fff;
 }
 
+/* Escondido em ecrãs largos: aí a navegação fica sempre visível ao lado
+   do logótipo (ver .app__header nav acima). Só aparece no @media abaixo. */
+.app__menu-toggle {
+  display: none;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #2f3542;
+  background: transparent;
+  color: #e6e8ec;
+}
+
+.app__nav-backdrop {
+  display: none;
+}
+
 .app__main {
   padding: 1.5rem;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
   flex: 1;
+}
+
+/* --- Navegação em menu lateral (telemóvel / ecrã vertical) ---
+   Abaixo de 768px de largura os 3 botões de navegação deixam de caber ao
+   lado do logótipo sem sobrepor nada — passam a um menu lateral (painel
+   fixo que desliza a partir da direita), aberto pelo botão de hambúrguer
+   e fechado ao escolher uma opção, tocar no fundo escurecido, ou voltar a
+   carregar no botão (ver App.tsx: estado `menuOpen`). */
+@media (max-width: 768px) {
+  .app__header {
+    padding: 0.85rem 1rem;
+  }
+
+  .app__tagline {
+    display: none;
+  }
+
+  .app__menu-toggle {
+    display: inline-flex;
+  }
+
+  .app__header nav {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 40;
+    height: 100vh;
+    width: min(80vw, 300px);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+    padding: 4.5rem 1.25rem 1.5rem;
+    background: #161a22;
+    border-left: 1px solid #262b36;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+
+  .app__header nav.is-open {
+    transform: translateX(0);
+  }
+
+  .app__header nav button {
+    width: 100%;
+    text-align: left;
+    padding: 0.7rem 0.9rem;
+  }
+
+  .app__nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 480px) {
+  .app__header {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .app__header h1 {
+    font-size: 1.05rem;
+  }
+
+  .app__main {
+    padding: 1rem 0.85rem;
+  }
+
+  .app__footer {
+    padding: 1.25rem 0.85rem;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .camera-form__actions,
+  .settings__system-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .table-scroll {
+    margin: 0 -0.85rem;
+    padding: 0 0.85rem;
+  }
+}
+
+/* Envolve as tabelas (Configuração, Gravações): em vez de a página inteira
+   ficar com scroll horizontal num ecrã estreito, só a própria tabela
+   desliza para os lados — o resto do conteúdo mantém-se legível. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* --- Rodapé: acesso a partir de outro dispositivo (IP + código QR) --- */
@@ -282,6 +399,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
@@ -329,6 +448,7 @@
 
 .settings__row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -353,6 +473,100 @@
   border-radius: 10px;
   padding: 1.25rem;
   max-width: 420px;
+}
+
+.settings__system {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #262b36;
+}
+
+.settings__system h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.settings__system-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.settings__system-actions button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #2f3542;
+  background: #1f2430;
+  color: #e6e8ec;
+}
+
+.settings__danger-button {
+  border-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+.settings__system-message {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.settings__system-message.is-ok {
+  color: #4ade80;
+}
+
+/* Ecrã estreito (telemóvel): a tabela de câmaras deixa de fazer sentido em
+   formato tabela — o URL RTSP sozinho já não cabe ao lado do nome sem
+   scroll horizontal constante. Em vez disso, cada linha passa a um
+   "cartão" empilhado (nome, URL a quebrar linha, botões), usando o
+   `data-label` de cada <td> (ver Settings.tsx) para mostrar a etiqueta da
+   coluna que o <thead>, escondido aqui, deixou de mostrar. */
+@media (max-width: 640px) {
+  .settings__table thead {
+    display: none;
+  }
+
+  .settings__table,
+  .settings__table tbody,
+  .settings__table tr,
+  .settings__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .settings__table tr {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid #262b36;
+    border-radius: 10px;
+  }
+
+  .settings__table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .settings__table td {
+    padding: 0.3rem 0;
+    border-bottom: none;
+  }
+
+  .settings__table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.15rem;
+  }
+
+  .settings__url {
+    white-space: normal;
+    word-break: break-all;
+  }
+
+  .settings__row-actions button {
+    flex: 1 1 auto;
+  }
 }
 
 /* --- Recordings --- */
@@ -422,6 +636,24 @@
   text-align: center;
 }
 
+.recordings__empty-overall {
+  color: #9aa1ad;
+}
+
+.recordings__group {
+  margin-bottom: 1.75rem;
+}
+
+.recordings__group:last-child {
+  margin-bottom: 0;
+}
+
+.recordings__group-title {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  color: #e6e8ec;
+}
+
 /* --- CameraForm --- */
 
 .camera-form {
@@ -438,12 +670,59 @@
   color: #cfd3dc;
 }
 
-.camera-form input {
+.camera-form input,
+.camera-form select {
   background: #10131a;
   border: 1px solid #2f3542;
   border-radius: 6px;
   padding: 0.5rem 0.6rem;
   color: #e6e8ec;
+  font: inherit;
+}
+
+.camera-form__brand-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.75rem;
+  border: 1px solid #2f3542;
+  border-radius: 8px;
+  background: #10131a55;
+}
+
+.camera-form__brand-example,
+.camera-form__url-preview {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9aa1ad;
+  word-break: break-all;
+}
+
+.camera-form__brand-example code,
+.camera-form__url-preview code {
+  font-family: ui-monospace, monospace;
+  color: #cfd3dc;
+}
+
+.camera-form__fixed-username {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9aa1ad;
+}
+
+.camera-form__fixed-username code {
+  font-family: ui-monospace, monospace;
+  color: #cfd3dc;
+}
+
+.camera-form__warning {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  background: #f59e0b1f;
+  color: #f5b942;
+  border: 1px solid #f59e0b44;
 }
 
 .camera-form__test-result {

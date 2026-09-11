@@ -5,9 +5,13 @@
 #   1. Um serviço systemd --user que arranca o backend+frontend (start.sh).
 #   2. Uma entrada de autostart XDG que abre o browser no dashboard assim
 #      que o backend/frontend estiverem prontos (scripts/open-browser.sh).
+#   3. Desativa a suspensão/hibernação do sistema (Debian/systemd) — este é
+#      um dispositivo dedicado que deve ficar sempre acessível na rede.
 #
-# Uso (a partir da pasta do projeto, como o próprio utilizador — sem sudo):
+# Uso (a partir da pasta do projeto, como o próprio utilizador):
 #   ./scripts/install-autostart.sh
+# Os passos 1 e 2 não precisam de sudo; o passo 3 precisa (só para esse
+# passo — o script pede a password de sudo nessa altura, se for preciso).
 #
 # Para desinstalar: ./scripts/uninstall-autostart.sh
 #
@@ -45,10 +49,29 @@ if command -v loginctl >/dev/null 2>&1; then
   loginctl enable-linger "$USER" 2>/dev/null || true
 fi
 
+# Desativa a suspensão/hibernação do sistema (Debian/systemd — inclui
+# Raspberry Pi OS e Ubuntu): este dispositivo corre sem vigilância e tem
+# de ficar sempre a gravar/acessível na rede, por isso uma suspensão
+# automática (por inatividade, tampa fechada num portátil, etc.) não pode
+# acontecer. "systemctl mask" é ao nível do sistema (não "--user"), por
+# isso precisa de sudo — e é mais robusto do que só desativar nas
+# definições do ambiente gráfico, porque impede o pedido de suspensão
+# mesmo que venha de outro sítio (gestor de energia, `systemctl suspend`
+# manual, etc.), em vez de só um temporizador.
+echo
+yellow "A desativar suspensão/hibernação do sistema (pode pedir a password de sudo)..."
+if sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null; then
+  green "Suspensão/hibernação desativada."
+else
+  yellow "Não foi possível desativar a suspensão/hibernação automaticamente (sem sudo disponível?)."
+  yellow "Corre manualmente: sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target"
+fi
+
 echo
 green "Arranque automático instalado:"
 echo "  - Serviço systemd --user: camtramp.service (backend + frontend)"
 echo "  - Autostart do browser:   ~/.config/autostart/camtramp-browser.desktop"
+echo "  - Suspensão/hibernação do sistema desativada"
 echo
 yellow "Estado do serviço:  systemctl --user status camtramp.service"
 yellow "Logs em direto:     journalctl --user -u camtramp.service -f"

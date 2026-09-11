@@ -41,6 +41,10 @@ async def lifespan(app: FastAPI):
     # ciclo em segundo plano que envia o estado das câmaras a quem estiver
     # ligado a /ws/status (ver services/status_broadcaster.py)
     broadcast_task = asyncio.create_task(status_broadcaster.broadcast_loop())
+    # limpa já aqui qualquer excesso deixado de uma sessão anterior (ex.: o
+    # backend foi desligado a meio de testes) em vez de esperar pelo
+    # primeiro tick do ciclo abaixo (ver services/recording_manager.py)
+    recording_manager.cleanup_once()
     # ciclo em segundo plano que mantém só as últimas RECORDING_SEGMENTS_TO_KEEP
     # gravações por câmara (ver services/recording_manager.py)
     recordings_cleanup_task = asyncio.create_task(recording_manager.cleanup_loop())

@@ -35,8 +35,10 @@ import shutil
 import subprocess
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 from config.settings import (
     BUFFER_DIR,
@@ -83,6 +85,17 @@ def recording_dir(camera_id: int) -> Path:
     d = RECORDINGS_DIR / str(camera_id)
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _camera_host(rtsp_url: str) -> str:
+    """IP/hostname da câmara, sem utilizador/password nem porta — só para
+    identificar a câmara no cabeçalho do log (ver start() abaixo). Nunca
+    escrever o rtsp_url completo no log: pode conter a password em claro."""
+    try:
+        host = urlparse(rtsp_url).hostname
+    except ValueError:
+        host = None
+    return host or "IP desconhecido"
 
 
 def _hls_list_size(buffer_seconds: int) -> int:
@@ -227,7 +240,12 @@ def is_running(camera_id: int) -> bool:
         return True
 
 
-def start(camera_id: int, rtsp_url: str, buffer_seconds: int) -> StreamInfo:
+def start(
+    camera_id: int,
+    rtsp_url: str,
+    buffer_seconds: int,
+    camera_name: Optional[str] = None,
+) -> StreamInfo:
     """Arranca o FFmpeg para a câmara, se ainda não estiver a correr."""
     if shutil.which(FFMPEG_BINARY) is None:
         raise FFmpegNotFoundError(
@@ -247,6 +265,17 @@ def start(camera_id: int, rtsp_url: str, buffer_seconds: int) -> StreamInfo:
 
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
         log_file = open(LOGS_DIR / f"camera_{camera_id}.log", "a", encoding="utf-8")
+
+        # Cabeçalho identificando esta sessão: nome + IP da câmara e o
+        # timestamp exato em que este arranque foi registado. Sem isto, o
+        # ficheiro de log só tem o id numérico no nome e fica tudo junto
+        # (arranques antigos e novos) sem se perceber onde um começa e
+        # outro acaba.
+        started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        host = _camera_host(rtsp_url)
+        label = camera_name or f"câmara {camera_id}"
+        log_file.write(f"\n==== [{started_at}] {label} (IP {host}) — stream iniciado ====\n")
+        log_file.flush()
 
         cmd = _build_ffmpeg_command(rtsp_url, camera_id, buffer_seconds)
         proc = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT)

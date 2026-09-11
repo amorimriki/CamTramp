@@ -41,6 +41,11 @@ export interface NetworkInfo {
   ip: string
 }
 
+export interface RestartResult {
+  ok: boolean
+  message: string
+}
+
 export interface DiscoveredDevice {
   ip: string
   port: number

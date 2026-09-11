@@ -26,8 +26,14 @@ from models.recording import RecordingInfo
 from services import camera_manager
 
 # Ciclo de rotação: não precisa da cadência do status_broadcaster (1s) —
-# só serve para não deixar acumular ficheiros indefinidamente.
-CLEANUP_INTERVAL_SECONDS = 30
+# só serve para não deixar acumular ficheiros indefinidamente. Além deste
+# ciclo periódico, cleanup_once() é também chamado de imediato sempre que
+# uma câmara arranca (ver services/camera_manager.start_stream) e uma vez
+# no arranque do backend (ver main.py) — isto evita que, durante testes com
+# muitos arranques/paragens seguidos da mesma câmara (cada um cria logo um
+# novo ficheiro de gravação), o número de ficheiros em disco cresça acima
+# do limite enquanto se espera pelo próximo tick deste ciclo.
+CLEANUP_INTERVAL_SECONDS = 10
 
 # Guarda-se sempre uma margem de 1 ficheiro acima de
 # RECORDING_SEGMENTS_TO_KEEP: o mais recente pode ainda estar a ser
