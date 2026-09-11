@@ -66,7 +66,7 @@
 - README atualizado com todas as alterações acima (estado do projeto,
   estrutura de pastas, endpoints da API e secções relevantes).
 - Adicionados os créditos de autoria (Ricardo Amorim) e a nota de licença
-  (MIT, projeto open source) no README e no ficheiro `LICENSE`.
+  (MIT) no README e no ficheiro `LICENSE`.
 
 ---
 

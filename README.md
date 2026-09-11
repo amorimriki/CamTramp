@@ -1,7 +1,6 @@
 # CamTramp
 
-Desenvolvido por **Ricardo Amorim** · open source, [licença MIT](LICENSE)
-(ver secção 18).
+Desenvolvido por **Ricardo Amorim** · [licença MIT](LICENSE) (ver secção 18).
 
 Sistema de vídeo com buffer/replay para câmaras IP (RTSP), pensado para
 treino de trampolim: vídeo ao vivo por câmara, com uma janela contínua dos
@@ -694,10 +693,10 @@ Por ordem de prioridade previsível:
 
 CamTramp é desenvolvido por **Ricardo Amorim**.
 
-Este é um projeto open source, distribuído sob a [licença MIT](LICENSE) —
-pode ser usado, copiado, modificado e distribuído livremente, desde que se
-mantenha o aviso de copyright e a licença original (ver o ficheiro
-`LICENSE` para o texto completo).
+Este projeto é distribuído sob a [licença MIT](LICENSE) — pode ser usado,
+copiado, modificado e distribuído livremente, desde que se mantenha o
+aviso de copyright e a licença original (ver o ficheiro `LICENSE` para o
+texto completo).
 
 Os mesmos créditos aparecem também, em pequeno, no rodapé da interface (visível em
 todas as páginas).
