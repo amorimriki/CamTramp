@@ -195,7 +195,18 @@
   padding: 1.75rem 1.5rem;
   margin-top: 2rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Créditos de autoria (ver README secção 18) — discretos, no fundo da
+   interface, em todas as páginas (o rodapé é comum a toda a app). */
+.app__credits {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
 }
 
 .network-access {

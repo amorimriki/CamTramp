@@ -1,5 +1,8 @@
 # CamTramp
 
+Desenvolvido por **Ricardo Amorim** · open source, sem fins comerciais ·
+[licença MIT](LICENSE) (ver secção 18).
+
 Sistema de vídeo com buffer/replay para câmaras IP (RTSP), pensado para
 treino de trampolim: vídeo ao vivo por câmara, com uma janela contínua dos
 últimos minutos disponível para recuar e rever uma execução. Corre
@@ -654,3 +657,16 @@ Por ordem de prioridade previsível:
   Raspberry Pi real.
 - **Análise avançada** — reprodução frame-a-frame, marcação de
   início/fim de um salto, exportação de vídeo.
+
+## 18. Autoria e licença
+
+CamTramp é desenvolvido por **Ricardo Amorim**.
+
+Este é um projeto open source, sem qualquer objetivo comercial, distribuído
+sob a [licença MIT](LICENSE) — pode ser usado, copiado, modificado e
+distribuído livremente, desde que se mantenha o aviso de copyright e a
+licença original (ver o ficheiro `LICENSE` para o texto completo).
+
+Os mesmos créditos aparecem também, em pequeno, no rodapé da interface (visível em
+todas as páginas).
+
