@@ -88,9 +88,33 @@ export const api = {
   stopApp: (password: string) =>
     request<RestartResult>('/api/system/stop', { method: 'POST', body: JSON.stringify({ password }) }),
 
-  // Apaga todas as câmaras guardadas e os logs de FFmpeg (não apaga
-  // gravações nem o buffer de vídeo). Funciona também em desenvolvimento,
+  // Apaga todas as câmaras guardadas, os logs de FFmpeg, as gravações
+  // permanentes e o buffer de vídeo. Funciona também em desenvolvimento,
   // ao contrário de restart/stop.
   resetApp: (password: string) =>
     request<RestartResult>('/api/system/reset', { method: 'POST', body: JSON.stringify({ password }) }),
+
+  // Só confirma a password de administração, sem executar nenhuma ação —
+  // usado para abrir o card de administração (ver Settings.tsx).
+  checkAdminPassword: (password: string) =>
+    request<RestartResult>('/api/system/check-password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+
+  // Instala o arranque automático (serviço systemd --user + autostart do
+  // browser + desativa suspensão do sistema — README secção 10). Devolve
+  // o output completo do script em `output`.
+  installAutostart: (password: string) =>
+    request<RestartResult>('/api/system/install-autostart', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+
+  // Remove tudo o que installAutostart instalou.
+  uninstallAutostart: (password: string) =>
+    request<RestartResult>('/api/system/uninstall-autostart', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
 }

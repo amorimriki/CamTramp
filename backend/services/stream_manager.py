@@ -307,6 +307,18 @@ def get_info(camera_id: int) -> StreamInfo:
     return StreamInfo(camera_id, running, playlist_path(camera_id), proc.pid if proc else None)
 
 
+def discard_camera_files(camera_id: int) -> None:
+    """Remove o buffer HLS temporário e o ficheiro de log desta câmara.
+
+    Chamado só depois de a câmara já ter sido removida da configuração
+    (ver services/camera_manager.remove_camera) — não mexe nas gravações
+    permanentes, tratadas à parte por
+    recording_manager.delete_camera_recordings().
+    """
+    shutil.rmtree(BUFFER_DIR / str(camera_id), ignore_errors=True)
+    (LOGS_DIR / f"camera_{camera_id}.log").unlink(missing_ok=True)
+
+
 def stop_all() -> None:
     """Para todos os streams ativos (chamado no shutdown do backend)."""
     for camera_id in list(_processes.keys()):

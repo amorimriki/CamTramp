@@ -17,6 +17,7 @@ pelo próprio FFmpeg.
 from __future__ import annotations
 
 import asyncio
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -103,6 +104,18 @@ def _cleanup_camera(camera_dir: Path) -> None:
         return
     for old_file in files[:excess]:
         old_file.unlink(missing_ok=True)
+
+
+def delete_camera_recordings(camera_id: int) -> None:
+    """Apaga todas as gravações guardadas desta câmara.
+
+    Chamado só depois de a câmara já ter sido removida da configuração
+    (ver services/camera_manager.remove_camera) — sem essa câmara
+    configurada, este id deixa de aparecer em lado nenhum da interface e
+    ninguém voltaria a conseguir aceder a estes ficheiros; mantê-los só
+    ocuparia espaço em disco sem necessidade.
+    """
+    shutil.rmtree(RECORDINGS_DIR / str(camera_id), ignore_errors=True)
 
 
 def cleanup_once() -> None:

@@ -44,6 +44,9 @@ export interface NetworkInfo {
 export interface RestartResult {
   ok: boolean
   message: string
+  // Output completo (stdout+stderr) de um script corrido a pedido — só
+  // vem preenchido pelo installAutostart/uninstallAutostart.
+  output?: string
 }
 
 export interface DiscoveredDevice {

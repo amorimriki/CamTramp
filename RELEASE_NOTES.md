@@ -46,12 +46,27 @@
   **modo cartão** em ecrãs pequenos, em vez de obrigar a fazer scroll
   horizontal.
 
+### Administração
+- Os botões de reiniciar/parar/repor deixam de estar sempre visíveis:
+  agora há um único botão **"Admin"** que pede a password uma vez e, se
+  estiver correta, abre um **card** com todas as ações.
+- Esse card ganha dois botões novos — **instalar** e **remover o arranque
+  automático** — que correm os scripts `install-autostart.sh` /
+  `uninstall-autostart.sh` diretamente a partir da interface, sem precisar
+  de SSH.
+- Todas as ações do card mostram sempre **feedback**: mensagem de
+  sucesso/erro e, para os dois botões novos, o output completo do script.
+
+### Câmaras (correção)
+- Ao **remover uma câmara**, deixam de ficar gravações, buffer temporário
+  e ficheiro de log órfãos em disco: agora são apagados automaticamente
+  junto com a câmara.
+
 ### Documentação
 - README atualizado com todas as alterações acima (estado do projeto,
   estrutura de pastas, endpoints da API e secções relevantes).
 - Adicionados os créditos de autoria (Ricardo Amorim) e a nota de licença
-  (MIT, projeto open source sem fins comerciais) no README e no ficheiro
-  `LICENSE`.
+  (MIT, projeto open source) no README e no ficheiro `LICENSE`.
 
 ---
 

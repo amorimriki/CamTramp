@@ -115,8 +115,8 @@ function App() {
       <footer className="app__footer">
         <NetworkAccess />
         <p className="app__credits">
-          CamTramp &copy; 2026 Ricardo Amorim &middot; open source, sem fins
-          comerciais &middot; licença MIT
+          CamTramp &copy; 2026 Ricardo Amorim &middot; open source &middot;
+          licença MIT
         </p>
       </footer>
     </div>

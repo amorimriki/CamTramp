@@ -525,6 +525,50 @@
   color: #4ade80;
 }
 
+/* Card de administração (botão "Admin" em Settings.tsx): só aparece
+   depois de a password ser confirmada pelo backend — junta reiniciar,
+   parar, repor e instalar/remover o arranque automático num único sítio,
+   em vez de botões sempre visíveis na página. */
+.settings__admin-card {
+  margin-top: 0.75rem;
+  background: #161a22;
+  border: 1px solid #262b36;
+  border-radius: 10px;
+  padding: 1.1rem;
+}
+
+.settings__admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.settings__admin-card-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Output completo (stdout+stderr) de um script corrido a pedido (instalar/
+   remover arranque automático) — monoespaçado e com scroll próprio, para
+   não esticar o resto do card se o script produzir muitas linhas. */
+.settings__output {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #0d1016;
+  border: 1px solid #262b36;
+  border-radius: 8px;
+  color: #9aa1ad;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
 /* Ecrã estreito (telemóvel): a tabela de câmaras deixa de fazer sentido em
    formato tabela — o URL RTSP sozinho já não cabe ao lado do nome sem
    scroll horizontal constante. Em vez disso, cada linha passa a um

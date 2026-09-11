@@ -54,8 +54,17 @@ def update_camera(camera_id: int, payload: CameraUpdate) -> Optional[Camera]:
 
 
 def remove_camera(camera_id: int) -> bool:
+    """Remove uma câmara e tudo o que era só dela: o stream em curso, o
+    buffer HLS temporário, o ficheiro de log e as gravações guardadas.
+    Sem a câmara configurada, esses ficheiros deixam de ser acessíveis
+    por qualquer id válido — deixá-los para trás seria um "fica lixo no
+    disco" silencioso (ver README secção 16)."""
     stream_manager.stop(camera_id)
-    return db.delete_camera(camera_id)
+    deleted = db.delete_camera(camera_id)
+    if deleted:
+        stream_manager.discard_camera_files(camera_id)
+        recording_manager.delete_camera_recordings(camera_id)
+    return deleted
 
 
 def get_status(camera_id: int) -> str:

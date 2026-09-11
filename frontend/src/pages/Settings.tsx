@@ -1,20 +1,25 @@
 // Página de configuração das câmaras (README secção 8): listar, adicionar,
-// editar e remover câmaras. Inclui também as ações de sistema (README
-// secção 10): reiniciar, parar/fechar e repor a aplicação — as três só
-// avançam com a password de administração correta (ADMIN_ACTION_PASSWORD
-// em backend/config/settings.py); reiniciar/parar só funcionam quando
-// instalado como serviço systemd --user, ficam desativadas noutros casos
-// (o pedido falha com 409 e a mensagem de erro do backend explica porquê).
+// editar e remover câmaras. Inclui também um card de administração
+// (README secção 10): reiniciar, parar/fechar e repor a aplicação, e
+// instalar/desinstalar o arranque automático. O card só abre depois de a
+// password de administração (ADMIN_ACTION_PASSWORD em
+// backend/config/settings.py) ser confirmada pelo backend — só depois é
+// que os botões lá dentro ficam disponíveis, já sem pedir a password outra
+// vez a cada clique. Reiniciar/parar/desinstalar o arranque automático só
+// funcionam quando o CamTramp já está instalado como serviço systemd
+// --user (README secção 10) — nesses casos o pedido falha com 409 e a
+// mensagem de erro do backend explica porquê, ou (desinstalar, se for
+// mesmo esse serviço a correr) a aplicação fecha-se a seguir.
 
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { CameraForm } from '../components/CameraForm'
 import type { Camera, RestartResult } from '../types'
 
-type SystemAction = 'restart' | 'stop' | 'reset'
+type SystemAction = 'restart' | 'stop' | 'reset' | 'install-autostart' | 'uninstall-autostart'
 
 // Sugestão de password mencionada no texto do window.prompt() (ver
-// runSystemAction) — a mesma que já aparece como placeholder no campo de
+// handleOpenAdmin) — a mesma que já aparece como placeholder no campo de
 // password da Jooan em CameraForm.tsx. Fica só escrita na pergunta, não
 // como valor pré-preenchido no campo: window.prompt() não tem
 // "placeholder" (texto de exemplo que desaparece ao escrever) — o único
@@ -30,8 +35,15 @@ export function Settings() {
   const [showForm, setShowForm] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  // A password só fica em memória (nunca em disco/localStorage) enquanto
+  // o card de administração está aberto — introduzida uma vez ao clicar
+  // em "Admin", reutilizada por todos os botões lá dentro, e limpa ao
+  // fechar o card.
+  const [adminPassword, setAdminPassword] = useState<string | null>(null)
+  const [adminChecking, setAdminChecking] = useState(false)
   const [systemBusy, setSystemBusy] = useState<SystemAction | null>(null)
   const [systemMessage, setSystemMessage] = useState<string | null>(null)
+  const [systemOutput, setSystemOutput] = useState<string | null>(null)
   const [systemError, setSystemError] = useState<string | null>(null)
 
   const reload = async () => {
@@ -69,30 +81,61 @@ export function Settings() {
   }
 
   const handleDelete = async (camera: Camera) => {
-    if (!window.confirm(`Remover a câmara "${camera.name}"?`)) return
+    if (!window.confirm(`Remover a câmara "${camera.name}"? As gravações guardadas dela também serão apagadas.`))
+      return
     await api.deleteCamera(camera.id)
     reload()
   }
 
-  // Ação genérica de sistema (restart/stop/reset): em vez de um campo de
-  // password sempre visível na página, só se pede a password (com
-  // window.prompt, que já serve de confirmação — cancelar/deixar em
-  // branco aborta) no preciso momento em que se carrega no botão. Nunca
-  // fica nada em claro no ecrã entre cliques, o que interessa mais aqui
-  // do que num ecrã partilhado no ginásio.
+  // Botão "Admin": pede a password uma única vez e confirma-a já aqui
+  // (POST /api/system/check-password) — só abre o card se estiver
+  // correta, em vez de a pessoa descobrir que a escreveu mal só ao
+  // carregar numa ação lá dentro.
+  const handleOpenAdmin = async () => {
+    const password = window.prompt(
+      `Password de administração (sugestão: ${ADMIN_PASSWORD_HINT}):`,
+    )
+    if (!password) return
+    setAdminChecking(true)
+    try {
+      await api.checkAdminPassword(password)
+      setAdminPassword(password)
+      setSystemMessage(null)
+      setSystemOutput(null)
+      setSystemError(null)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Password incorreta.')
+    } finally {
+      setAdminChecking(false)
+    }
+  }
+
+  const handleCloseAdmin = () => {
+    setAdminPassword(null)
+    setSystemMessage(null)
+    setSystemOutput(null)
+    setSystemError(null)
+  }
+
+  // Ação genérica do card de administração: usa a password já confirmada
+  // ao abrir o card (nunca pede outra vez), com uma confirmação extra por
+  // ação antes de a disparar, e mostra sempre o resultado (mensagem e,
+  // quando existir, o output completo do script) dentro do próprio card.
   const runSystemAction = async (
     action: SystemAction,
-    promptText: string,
+    confirmText: string,
     call: (password: string) => Promise<RestartResult>,
   ) => {
-    const password = window.prompt(promptText)
-    if (!password) return // cancelado ou deixado em branco
+    if (!adminPassword) return
+    if (!window.confirm(confirmText)) return
     setSystemBusy(action)
     setSystemMessage(null)
+    setSystemOutput(null)
     setSystemError(null)
     try {
-      const result = await call(password)
+      const result = await call(adminPassword)
       setSystemMessage(result.message)
+      setSystemOutput(result.output ?? null)
       if (action === 'reset') reload()
     } catch (e) {
       setSystemError(e instanceof Error ? e.message : 'Falha na operação')
@@ -104,27 +147,42 @@ export function Settings() {
   const handleRestart = () =>
     runSystemAction(
       'restart',
-      'Reiniciar a aplicação (o vídeo em direto fica indisponível por alguns segundos). ' +
-        `Password de administração (sugestão: ${ADMIN_PASSWORD_HINT}):`,
+      'Reiniciar a aplicação? O vídeo em direto fica indisponível por alguns segundos.',
       api.restartApp,
     )
 
   const handleStop = () =>
     runSystemAction(
       'stop',
-      'Parar a aplicação — o backend e o frontend vão encerrar e é preciso voltar a ligar a ' +
-        'Raspberry Pi (ou correr ./start.sh manualmente) para voltar a usar o CamTramp. ' +
-        `Password de administração (sugestão: ${ADMIN_PASSWORD_HINT}):`,
+      'Parar a aplicação? O backend e o frontend vão encerrar — é preciso voltar a ligar a ' +
+        'Raspberry Pi (ou correr ./start.sh manualmente) para voltar a usar o CamTramp.',
       api.stopApp,
     )
 
   const handleReset = () =>
     runSystemAction(
       'reset',
-      'Repor a base de dados e os logs — todas as câmaras guardadas, as gravações e o ' +
-        'buffer de vídeo vão ser apagados. Esta ação não pode ser desfeita. ' +
-        `Password de administração (sugestão: ${ADMIN_PASSWORD_HINT}):`,
+      'Repor a base de dados e os logs? Todas as câmaras guardadas, as gravações e o buffer ' +
+        'de vídeo vão ser apagados. Esta ação não pode ser desfeita.',
       api.resetApp,
+    )
+
+  const handleInstallAutostart = () =>
+    runSystemAction(
+      'install-autostart',
+      'Instalar o arranque automático? Cria o serviço systemd --user, o autostart do browser ' +
+        'em ecrã inteiro, e desativa a suspensão do sistema (README secção 10). Se a app ' +
+        'estiver a correr manualmente (./start.sh), convém fechar esse processo a seguir.',
+      api.installAutostart,
+    )
+
+  const handleUninstallAutostart = () =>
+    runSystemAction(
+      'uninstall-autostart',
+      'Remover o arranque automático? Desativa o serviço systemd, o autostart do browser, e ' +
+        'reativa a suspensão do sistema. Se for este o serviço a correr a aplicação agora, ela ' +
+        'vai fechar-se a seguir.',
+      api.uninstallAutostart,
     )
 
   return (
@@ -187,30 +245,63 @@ export function Settings() {
 
       <div className="settings__system">
         <h3>Sistema</h3>
-        <p className="settings__hint">
-          Reinicia o backend e o frontend (só disponível quando o CamTramp está instalado como
-          arranque automático).
-        </p>
 
-        <div className="settings__system-actions">
-          <button type="button" onClick={handleRestart} disabled={systemBusy !== null}>
-            {systemBusy === 'restart' ? 'A reiniciar...' : 'Reiniciar aplicação'}
-          </button>
-          <button type="button" onClick={handleStop} disabled={systemBusy !== null}>
-            {systemBusy === 'stop' ? 'A encerrar...' : 'Parar aplicação'}
-          </button>
-          <button
-            type="button"
-            className="settings__danger-button"
-            onClick={handleReset}
-            disabled={systemBusy !== null}
-          >
-            {systemBusy === 'reset' ? 'A repor...' : 'Repor tudo (câmaras, gravações e logs)'}
-          </button>
-        </div>
+        {adminPassword === null ? (
+          <>
+            <p className="settings__hint">
+              Reiniciar, parar ou repor a aplicação, e instalar/remover o arranque automático —
+              ações protegidas por password.
+            </p>
+            <button type="button" onClick={handleOpenAdmin} disabled={adminChecking}>
+              {adminChecking ? 'A confirmar...' : 'Admin'}
+            </button>
+          </>
+        ) : (
+          <div className="settings__admin-card">
+            <div className="settings__admin-card-header">
+              <h4>Administração</h4>
+              <button type="button" onClick={handleCloseAdmin}>
+                Fechar
+              </button>
+            </div>
 
-        {systemMessage && <div className="settings__system-message is-ok">{systemMessage}</div>}
-        {systemError && <div className="settings__error">{systemError}</div>}
+            <div className="settings__system-actions">
+              <button type="button" onClick={handleRestart} disabled={systemBusy !== null}>
+                {systemBusy === 'restart' ? 'A reiniciar...' : 'Reiniciar aplicação'}
+              </button>
+              <button type="button" onClick={handleStop} disabled={systemBusy !== null}>
+                {systemBusy === 'stop' ? 'A encerrar...' : 'Parar aplicação'}
+              </button>
+              <button
+                type="button"
+                className="settings__danger-button"
+                onClick={handleReset}
+                disabled={systemBusy !== null}
+              >
+                {systemBusy === 'reset' ? 'A repor...' : 'Repor tudo (câmaras, gravações e logs)'}
+              </button>
+              <button
+                type="button"
+                onClick={handleInstallAutostart}
+                disabled={systemBusy !== null}
+              >
+                {systemBusy === 'install-autostart' ? 'A instalar...' : 'Instalar arranque automático'}
+              </button>
+              <button
+                type="button"
+                className="settings__danger-button"
+                onClick={handleUninstallAutostart}
+                disabled={systemBusy !== null}
+              >
+                {systemBusy === 'uninstall-autostart' ? 'A remover...' : 'Remover arranque automático'}
+              </button>
+            </div>
+
+            {systemMessage && <div className="settings__system-message is-ok">{systemMessage}</div>}
+            {systemError && <div className="settings__error">{systemError}</div>}
+            {systemOutput && <pre className="settings__output">{systemOutput}</pre>}
+          </div>
+        )}
       </div>
     </div>
   )

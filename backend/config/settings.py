@@ -12,6 +12,13 @@ from pathlib import Path
 # Diretoria raiz do backend (.../backend)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Diretoria raiz do projeto (a acima de backend/) e a pasta scripts/ lá
+# dentro (install-autostart.sh, uninstall-autostart.sh, open-browser.sh —
+# ver README secção 10 e backend/api/system.py, que os corre a pedido da
+# interface).
+PROJECT_DIR = BASE_DIR.parent
+SCRIPTS_DIR = PROJECT_DIR / "scripts"
+
 # Ficheiro JSON usado como "base de dados" (câmaras, gravações, etc.)
 DATA_DIR = BASE_DIR / "database"
 DB_FILE = DATA_DIR / "db.json"

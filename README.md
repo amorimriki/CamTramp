@@ -1,7 +1,7 @@
 # CamTramp
 
-Desenvolvido por **Ricardo Amorim** · open source, sem fins comerciais ·
-[licença MIT](LICENSE) (ver secção 18).
+Desenvolvido por **Ricardo Amorim** · open source, [licença MIT](LICENSE)
+(ver secção 18).
 
 Sistema de vídeo com buffer/replay para câmaras IP (RTSP), pensado para
 treino de trampolim: vídeo ao vivo por câmara, com uma janela contínua dos
@@ -27,7 +27,7 @@ internet.
 | Estado em tempo real via WebSocket (a correr + buffer de cada câmara) | ✅ |
 | Seletor de marca da câmara no formulário (Teruhal, Jooan) — monta o URL RTSP sozinho | ✅ (ver secção 7) |
 | Interface adaptada a telemóvel (menu lateral, tabelas em cartões) | ✅ (ver secção 9) |
-| Reiniciar/parar a aplicação e repor a base de dados a partir da interface, com password | ✅ (ver secção 10) |
+| Card de administração (password): reiniciar/parar/repor a app e instalar/remover o arranque automático, a partir da interface | ✅ (ver secção 10) |
 
 ## 2. Arquitetura
 
@@ -95,7 +95,7 @@ CamTramp/
 │   │   ├── cameras.py               # CRUD de câmaras + teste de ligação RTSP
 │   │   ├── buffer.py                # estado do stream, start/stop, resumo do buffer
 │   │   ├── ws.py                     # WS /ws/status — estado em tempo real (secção 15)
-│   │   ├── system.py                # IP local (código QR) + reiniciar/parar/repor a app, com password (secção 10)
+│   │   ├── system.py                # IP local (código QR) + card de admin (reiniciar/parar/repor/autostart), com password (secção 10)
 │   │   ├── discovery.py             # descoberta de câmaras na rede local (nmap)
 │   │   └── recordings.py            # GET /api/recordings — listar gravações (secção 16)
 │   ├── services/
@@ -133,7 +133,7 @@ CamTramp/
         └── pages/
             ├── Dashboard.tsx          # grelha de câmaras (ecrã principal)
             ├── Recordings.tsx         # gravações automáticas, uma lista por câmara (secção 16)
-            └── Settings.tsx           # câmaras + ações de sistema: reiniciar/parar/repor, com password (secção 10)
+            └── Settings.tsx           # câmaras + card de administração (secção 10)
 ```
 
 ## 5. Como funciona o streaming e o buffer
@@ -389,21 +389,24 @@ Este arranque automático é específico de Linux/systemd (pensado para o
 Raspberry Pi de implantação, ver secção 14); em macOS continua a usar-se
 `./start.sh` manualmente durante o desenvolvimento.
 
-**Reiniciar/parar a aplicação sem SSH** — a página de Configuração
-("Sistema") tem três botões:
+**Card de administração sem SSH** — a página de Configuração ("Sistema")
+tem um único botão "Admin" que abre um card com cinco ações, em vez de
+botões sempre visíveis na página:
 
 | Botão | Endpoint | O que faz |
 |---|---|---|
 | Reiniciar aplicação | `POST /api/system/restart` | `systemctl --user restart camtramp.service` |
 | Parar aplicação | `POST /api/system/stop` | `systemctl --user stop camtramp.service` (não volta a arrancar sozinho) |
 | Repor tudo (câmaras, gravações e logs) | `POST /api/system/reset` | apaga todas as câmaras guardadas, os logs, as gravações e o buffer de vídeo |
+| Instalar arranque automático | `POST /api/system/install-autostart` | corre `scripts/install-autostart.sh` (ver acima) |
+| Remover arranque automático | `POST /api/system/uninstall-autostart` | corre `scripts/uninstall-autostart.sh` |
 
 Reiniciar/parar são serviços `--user`, não precisam de `sudo`, e só
-funcionam quando o CamTramp foi instalado por este script — caso
-contrário (ex.: `./start.sh` manual em desenvolvimento) o botão devolve um
-erro a explicar isso. "Repor" é diferente: não depende do systemd (não
-mexe em nenhum processo do sistema, só nos ficheiros da própria
-aplicação), por isso funciona também em desenvolvimento — mas é
+funcionam quando o CamTramp foi instalado com `install-autostart.sh` —
+caso contrário (ex.: `./start.sh` manual em desenvolvimento) o botão
+devolve um erro a explicar isso. "Repor" é diferente: não depende do
+systemd (não mexe em nenhum processo do sistema, só nos ficheiros da
+própria aplicação), por isso funciona também em desenvolvimento — mas é
 destrutivo e sem forma de desfazer, por isso o frontend pede sempre
 confirmação antes de o enviar. Apaga a configuração das câmaras, os logs,
 **e também** as gravações permanentes (`storage/recordings/`) e o buffer
@@ -413,23 +416,40 @@ nenhum id de câmara válido) e sem qualquer uso, por isso o reset limpa-os
 também em vez de os deixar a ocupar espaço em disco (as pastas em si não
 são apagadas, só o conteúdo).
 
-**Password de administração** — os três botões acima não têm nenhum
-campo de password sempre visível na página: ao carregar num deles,
-aparece um `window.prompt()` a pedir a password, mencionando a sugestão
+Instalar/remover arranque automático correm os próprios scripts descritos
+no início desta secção, a partir da interface — o backend captura todo o
+`stdout`/`stderr` do script (sem os códigos de cor do terminal, que
+ficariam ilegíveis numa página web) e mostra-o no card, para se perceber
+exatamente o que aconteceu sem precisar de abrir um terminal. "Instalar"
+corre sempre de forma síncrona (nunca desliga o processo atual: um
+`systemctl --user enable --now` num serviço já ativo não faz mal, é
+idempotente). "Remover" é diferente consoante o CamTramp esteja ou não a
+correr como esse mesmo serviço systemd neste preciso momento: se estiver
+(o serviço vai desativar-se a si próprio), corre em segundo plano com o
+mesmo truque de "sleep 1" do reiniciar/parar, e a interface não mostra o
+output completo — a aplicação fecha-se a seguir, como um "Parar"; caso
+contrário (ex.: `./start.sh` manual), corre logo e mostra o output
+completo.
+
+**Password de administração** — ao carregar em "Admin", aparece um
+`window.prompt()` a pedir a password, mencionando a sugestão
 `Tr@mpolinsaae` no próprio texto da pergunta ("Password de administração
 (sugestão: Tr@mpolinsaae):", `ADMIN_PASSWORD_HINT` em `Settings.tsx`) — o
-campo em si fica vazio, como um placeholder real deixaria. Isto em vez de
-pré-preencher o campo com essa sugestão (o único "2º argumento" que
-`window.prompt()` tem, já que não existe placeholder real numa caixa de
-diálogo nativa): um valor pré-preenchido fica lá parecendo já escrito, e
-seria enviado tal e qual se a pessoa só carregasse OK sem reparar.
-Cancelar ou deixar o campo em branco aborta sem chamar a API. A password
-é verificada no backend contra `ADMIN_ACTION_PASSWORD`
-(`backend/config/settings.py`) — se uma for alterada sem a outra, a
-sugestão mostrada deixa de bater certo com a password real. É uma
-proteção simples contra alguém carregar sem querer nestes botões num ecrã
-partilhado no ginásio — não é uma autenticação real (não há utilizadores
-nem sessões nesta aplicação).
+campo em si fica vazio, como um placeholder real deixaria (em vez de a
+pré-preencher: um valor pré-preenchido em `window.prompt()` fica lá
+parecendo já escrito, e seria enviado tal e qual se a pessoa só carregasse
+OK sem reparar). Cancelar ou deixar o campo em branco aborta sem chamar a
+API. A password é confirmada logo aí contra `ADMIN_ACTION_PASSWORD`
+(`backend/config/settings.py`, via `POST /api/system/check-password`) —
+só se estiver certa é que o card abre; se uma password for alterada sem a
+outra, a sugestão mostrada deixa de bater certo com a password real. A
+partir daí, os cinco botões do card usam essa mesma password (guardada só
+em memória, nunca escrita em disco) sem a pedir outra vez — cada ação
+continua a pedir uma confirmação (`window.confirm()`) antes de avançar,
+já sem envolver a password. Fechar o card (botão "Fechar") esquece a
+password de imediato. É uma proteção simples contra alguém carregar sem
+querer nestas ações num ecrã partilhado no ginásio — não é uma
+autenticação real (não há utilizadores nem sessões nesta aplicação).
 
 ## 11. API
 
@@ -449,9 +469,12 @@ GET    /api/cameras/{id}/buffer        # segmentos/duração disponíveis para r
 WS     /ws/status                      # estado (a correr + buffer) de todas as câmaras em tempo real (ver secção 15)
 
 GET    /api/system/network             # IP local desta máquina (para o código QR)
+POST   /api/system/check-password      # só confirma a password (usado para abrir o card de admin)
 POST   /api/system/restart             # reinicia a app (pede password; só via arranque automático, secção 10)
 POST   /api/system/stop                # para a app (pede password; só via arranque automático, secção 10)
 POST   /api/system/reset               # apaga câmaras, logs, gravações e buffer (pede password; funciona sempre)
+POST   /api/system/install-autostart   # corre scripts/install-autostart.sh (pede password; devolve o output)
+POST   /api/system/uninstall-autostart # corre scripts/uninstall-autostart.sh (pede password; devolve o output)
 GET    /api/discovery/scan             # varre a rede local (nmap) por câmaras RTSP
 
 GET    /api/recordings                 # listar gravações automáticas (opcional: ?camera_id=)
@@ -633,6 +656,15 @@ arranques/paragens seguidos da mesma câmara num intervalo curto (comum
 durante testes) podiam deixar acumular mais ficheiros do que o previsto
 até ao próximo tick do ciclo.
 
+**Ao remover uma câmara** (`DELETE /api/cameras/{id}`,
+`services/camera_manager.remove_camera`), as suas gravações guardadas
+(`storage/recordings/<camera_id>/`), o buffer HLS temporário
+(`storage/buffer/<camera_id>/`) e o ficheiro de log
+(`storage/logs/camera_<camera_id>.log`) são apagados automaticamente —
+sem essa câmara configurada, esse id deixa de aparecer em qualquer lado
+da interface e estes ficheiros nunca mais seriam acessíveis nem geridos
+por ninguém.
+
 **No frontend**, a página "Gravações" (`frontend/src/pages/Recordings.tsx`,
 via `GET /api/recordings` e `GET /api/cameras`) mostra uma lista/tabela
 **separada por câmara**, com o cabeçalho a usar o nome dado à câmara no
@@ -662,10 +694,10 @@ Por ordem de prioridade previsível:
 
 CamTramp é desenvolvido por **Ricardo Amorim**.
 
-Este é um projeto open source, sem qualquer objetivo comercial, distribuído
-sob a [licença MIT](LICENSE) — pode ser usado, copiado, modificado e
-distribuído livremente, desde que se mantenha o aviso de copyright e a
-licença original (ver o ficheiro `LICENSE` para o texto completo).
+Este é um projeto open source, distribuído sob a [licença MIT](LICENSE) —
+pode ser usado, copiado, modificado e distribuído livremente, desde que se
+mantenha o aviso de copyright e a licença original (ver o ficheiro
+`LICENSE` para o texto completo).
 
 Os mesmos créditos aparecem também, em pequeno, no rodapé da interface (visível em
 todas as páginas).
